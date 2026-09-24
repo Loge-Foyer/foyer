@@ -59,6 +59,16 @@ Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
 - **Assume one device or one client.** Several devices sync against the same
   account concurrently.
 
+## Skills
+
+`.agents/skills/` in this repository:
+
+- **`sc-sync-protocol`** — implementing the protocol correctly: idempotent push,
+  accepted-prefix confirmation, resumable cursors, and what the server must
+  never do.
+
+---
+
 ## Not yet decided
 
 Language and runtime, authentication model, storage, multi-user hosting,
