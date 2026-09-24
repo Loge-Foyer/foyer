@@ -24,17 +24,18 @@ talks to.
   all alternatives. This exists for people who want neither a cloud account nor
   their history living with a media server.
 - **Not where the Jellyfin bridge lives.** Pushing state back to Jellyfin is a
-  plugin concern and belongs in `streaming_center_plugins/packages/sync/jellyfin`.
+  plugin concern: it is the sync role of
+  `streaming_center_plugins/plugins/jellyfin`.
 
 ## Boundaries
 
-Depends on `@sc/plugin-api` for wire types, so client and server cannot drift
+Depends on `@sc/api` for wire types, so client and server cannot drift
 apart on what a change looks like. Depends on nothing else from the project —
 **never** on the app.
 
 ## The protocol it must implement
 
-Defined by `ConnectedUserStateSyncProvider` in `plugin-api`: `pull`, `push`,
+Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
 `getStatus`. Three properties are load-bearing and easy to get wrong:
 
 1. **`push` must be idempotent at the server.** A client may resend the same
@@ -64,7 +65,7 @@ Language and runtime, authentication model, storage, multi-user hosting,
 transport. All open. Record the decision and its reasoning in `docs/` when made.
 
 One consideration worth weighing: implementing it in TypeScript would let it
-share `@sc/plugin-api` directly, which removes any possibility of the client and
+share `@sc/api` directly, which removes any possibility of the client and
 server disagreeing about the wire format.
 
 ## Current state

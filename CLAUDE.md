@@ -26,7 +26,7 @@ their own devices.
 Two questions are open and should be answered deliberately, in `docs/`, rather
 than settled by whatever gets typed first:
 
-**What runtime?** TypeScript would let the server consume `@sc/plugin-api`
+**What runtime?** TypeScript would let the server consume `@sc/api`
 directly, which makes it structurally impossible for client and server to
 disagree about the wire format. That is a real advantage over any other choice,
 and worth weighing seriously against familiarity or deployment preference.
