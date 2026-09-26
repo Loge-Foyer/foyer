@@ -12,29 +12,28 @@ your own devices.
 You watch half a film on your phone. You sit down at the TV. It should already
 know where you got to.
 
-Making that work means your viewing state has to live somewhere both devices can
-reach. There are a few ways to arrange that, and Streaming Center supports all
-of them as separate, optional plugins:
+Making that work means your state has to live somewhere both devices can
+reach. For films on a media server that part is already solved: Jellyfin keeps
+its own record of what you watched, and the app reads it from there and writes
+it back there.
 
-- **Nowhere.** State stays on each device. Simple, and genuinely fine if you
-  only use one.
+Everything else — your profiles, their preferences and home screens, progress
+in files and web video that no server tracks — lives with your **account**. A
+device has at most one, and there are three ways to have it:
+
+- **None.** State stays on each device. Simple, and genuinely fine if you only
+  use one.
 - **iCloud or Google.** Convenient if you are already in one of those
   ecosystems, and nothing to run.
-- **Back to your media server.** Jellyfin already tracks what you have watched,
-  so the app can keep it in step. But it has nowhere to put things like your
-  theme preference or home screen layout, so it can only carry part of the
-  picture.
 - **This.** A small server of your own.
 
 ## Why you might want this one
 
-Because the self-hosting audience often does not want a cloud account, and does
-not want their viewing history tied to their media server either.
+Because the self-hosting audience often does not want a cloud account.
 
-Tying it to the media server has a practical cost too, not just a philosophical
-one: a media server can only store the state it has fields for. Your own server
-can hold everything the app knows — profiles, preferences, progress, favourites,
-lists, home layout.
+Your own server can hold everything the account carries — profiles,
+preferences, favourites, lists, home layout, progress in files and web video.
+Its password is also what resets a profile's forgotten PIN.
 
 And it keeps the two concerns genuinely separate. Your films come from wherever
 you keep films. Your viewing state goes wherever you want it. Changing one

@@ -16,10 +16,11 @@ documentation only.
 
 ## Why this exists
 
-Someone running Jellyfin at home may not want their viewing history stored with
-Apple, with Google, or inside their media server. This is the fourth option: a
-small server they run themselves that does one job — carry app state between
-their own devices.
+Someone running Jellyfin at home may not want their profiles and history stored
+with Apple or with Google. This is the other account a device can have: a small
+server they run themselves that does one job — carry app state between their
+own devices. Jellyfin keeps its own watch status, through its media role; that
+is not this server's job.
 
 ## Before writing any code here
 

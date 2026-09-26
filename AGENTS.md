@@ -9,8 +9,9 @@ The self-hosted sync server. Read the workspace root `AGENTS.md` and
 
 ## What this is
 
-A small server someone can run themselves so their viewing state syncs between
-their devices — without routing it through a media server, Apple or Google.
+A small server someone can run themselves as their **account** — the one sync
+connection a device can have — so their profiles, preferences and state follow
+them between devices without going through Apple or Google.
 
 It is the counterpart to the `custom-server` sync plugin in
 `streaming_center_plugins`. The plugin is the client; this is the server it
@@ -20,12 +21,14 @@ talks to.
 
 - **Not a media server.** It never stores or streams video. It carries the app's
   own normalized user state and nothing else.
-- **Not required.** Local-only, iCloud, Google and the Jellyfin state bridge are
-  all alternatives. This exists for people who want neither a cloud account nor
-  their history living with a media server.
-- **Not where the Jellyfin bridge lives.** Pushing state back to Jellyfin is a
-  plugin concern: it is the sync role of
-  `streaming_center_plugins/plugins/jellyfin`.
+- **Not required.** A device has at most one account, and none at all is fine:
+  state then stays on the device. iCloud and Google are the other accounts.
+  This exists for people who want neither.
+- **Not where Jellyfin's watch status goes.** A media server masters its own
+  watch status; the app caches it and writes it back through that plugin's
+  media role (`streaming_center_plugins/plugins/jellyfin`). This server carries
+  what no media source masters: profiles, preferences, lists, and progress in
+  files and web video.
 
 ## Boundaries
 
