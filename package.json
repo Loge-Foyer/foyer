@@ -10,8 +10,8 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "node scripts/build.mjs",
-    "start": "node --disable-warning=ExperimentalWarning dist/main.mjs",
-    "sc-sync": "node --disable-warning=ExperimentalWarning dist/cli.mjs",
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env dist/main.mjs",
+    "sc-sync": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env dist/cli.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

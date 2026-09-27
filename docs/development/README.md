@@ -16,6 +16,10 @@ npm run sc-sync -- invite
 and the server checks pushes with the client's own `isSyncChange`. The server
 depends on nothing else from the project.
 
+The tests alias one more: `@sc/plugin-custom-server`, the real client, for
+`plugin.test.ts` alone. Nothing in `src/` imports it — a test checks — so it
+never reaches the bundle.
+
 ## Tests
 
 - **`store.test.ts`** — the database and the log, on a real SQLite file:
@@ -39,7 +43,14 @@ depends on nothing else from the project.
   `SC_SYNC_TEST_HOOKS=1`.
 - **`cli.test.ts`** — invites, accounts, devices, revoking, deleting, and a
   backup restored over a stale write-ahead log, after which every earlier
-  cursor answers `reset`.
+  cursor answers `reset`; no restore under a server here, or under one in
+  another container.
+- **`plugin.test.ts`** — the real `custom-server` plugin against the real
+  server, in-process, over a Node host with `node:crypto` (`support/host.ts`)
+  and real key derivation: an account created from an invite, a second device
+  with the same vault key, two devices in one order, a sealed value carried
+  exactly, the owner check right, wrong and throttled, `sc-sync revoke` ending
+  a device that never signs itself back in, and signing out.
 
 The app's tests prove the client side of the same protocol, two devices at a
 time, against a fake account.

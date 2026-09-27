@@ -13,8 +13,15 @@ cd ../streaming_center_sync && npm install
 npm run build && npm start
 ```
 
-It listens on port 8730 and keeps its data in `./data`. `docs/deployment` has
-the settings, Docker, TLS and backups.
+It listens on port 8730 and keeps its data in `./data`. With Docker, the
+plugins repository beside this one:
+
+```bash
+docker compose up -d
+```
+
+and `docker compose exec sync sc-sync …` wherever `npm run sc-sync -- …`
+appears below. `docs/deployment` has the settings, TLS and backups.
 
 ## Make an account
 

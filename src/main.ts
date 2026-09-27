@@ -31,11 +31,14 @@ const server = serve({ fetch: app.fetch, port: config.port, hostname: config.hos
 });
 
 const stop = () => {
+  // A push in flight is answered first. Idle keep-alive connections would hold
+  // the close open until a container's stop timeout killed it, lock and all.
   server.close(() => {
     db.close();
     release();
     process.exit(0);
   });
+  if ('closeIdleConnections' in server) server.closeIdleConnections();
 };
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);

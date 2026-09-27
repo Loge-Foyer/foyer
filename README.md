@@ -3,8 +3,9 @@
 A small server you run yourself, so your viewing history follows you between
 your own devices.
 
-It is built: `npm install && npm run build && npm start`, then an invite
-from `npm run sc-sync -- invite`. `docs/getting-started` has the rest.
+It is built: `docker compose up -d`, or `npm install && npm run build && npm
+start`, then an invite from `sc-sync invite`. `docs/getting-started` has the
+rest.
 
 ---
 
@@ -47,8 +48,9 @@ devices, and survive a client crashing partway through without losing or
 duplicating anything.
 
 **Will not:** store or stream video, decide which version of your watch progress
-is correct when two devices disagree, or hold your media server passwords. Those
-all belong elsewhere on purpose.
+is correct when two devices disagree, or read your media server passwords — it
+carries them sealed on your devices, and cannot open them. Those all belong
+elsewhere on purpose.
 
 ## Current state
 
@@ -61,13 +63,15 @@ Accounts are created from the app with a one-time invite, so whoever runs the
 server never learns the password. The server never sees the key your
 connections' passwords are sealed with, either: it stores what it cannot open.
 
-The app's side — the plugin that talks to it, and signing in from Welcome and
-Settings — comes next.
+The plugin that talks to it — "Your own server" in the app — is built and
+tested against it; creating an account from the app's screens comes next.
+Docker and compose files are written; `docs/deployment` has running it for
+real.
 
 ## Documentation
 
-`docs/` covers getting started, the sync protocol, the eventual API, deployment
-and development. Each folder explains what will go there.
+`docs/` covers getting started, the sync protocol, every route, deployment
+and development.
 
 The full architecture is in
 [`../.claude/streaming-center-architecture.md`](../.claude/streaming-center-architecture.md).

@@ -131,4 +131,17 @@ describe('sc-sync', () => {
     expect(cli(dir, 'restore', backupFile).code).toBe(0);
     expect(existsSync(join(dir, 'sync.db'))).toBe(true);
   });
+
+  it('will not restore under a server on another host — another container — that it cannot ask', () => {
+    const dir = dataDir();
+    const backupFile = join(dir, 'backup.db');
+    cli(dir, 'invite');
+    expect(cli(dir, 'backup', backupFile).code).toBe(0);
+    // Process 1 is alive in every container: only the host tells whose it is.
+    writeFileSync(join(dir, 'server.lock'), JSON.stringify({ pid: 1, host: 'another-container' }));
+    const refused = cli(dir, 'restore', backupFile);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain('another-container');
+    expect(refused.err).toContain('server.lock');
+  });
 });

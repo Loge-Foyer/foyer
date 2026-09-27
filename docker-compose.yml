@@ -1,0 +1,33 @@
+# The sync server, and its data in a volume of its own.
+#
+#   docker compose up -d
+#   docker compose exec sync sc-sync invite
+#
+# The plugins repository must sit beside this one: the image is built with its
+# api as a second build context.
+services:
+  sync:
+    build:
+      context: .
+      additional_contexts:
+        api: ../streaming_center_plugins/api
+    image: streaming-center-sync
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    # The image's own: a .env meant for npm start must not move them.
+    environment:
+      SC_SYNC_DATA: /data
+      SC_SYNC_HOST: 0.0.0.0
+      SC_SYNC_PORT: "8730"
+    ports:
+      # 127.0.0.1:8730:8730 when a reverse proxy on this host is the way in.
+      - "${SC_SYNC_PUBLISH:-8730}:8730"
+    volumes:
+      # A local volume: SQLite's locking is not safe on NFS or SMB.
+      - sync-data:/data
+    stop_grace_period: 20s
+
+volumes:
+  sync-data:

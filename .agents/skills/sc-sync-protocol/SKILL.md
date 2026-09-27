@@ -115,5 +115,6 @@ after any change to `src/store/changes.ts`.
 
 ## Current state
 
-Built and tested — `docs/README.md` has the decisions and why. The
-`custom-server` plugin that talks to it comes next.
+Built and tested — `docs/README.md` has the decisions and why — and the real
+`custom-server` plugin runs against it in `test/plugin.test.ts`. A change to
+the protocol is a change to that plugin too: run both suites.

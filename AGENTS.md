@@ -37,6 +37,10 @@ Depends on `@sc/api` for wire types, so client and server cannot drift
 apart on what a change looks like. Depends on nothing else from the project —
 **never** on the app.
 
+One exception, for tests alone: `test/plugin.test.ts` drives the real
+`custom-server` plugin, aliased to its source like `@sc/api`. Nothing in `src/`
+may import a plugin — a test checks — and none reaches the bundle.
+
 ## The protocol it must implement
 
 Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
@@ -73,9 +77,9 @@ these properties are load-bearing and easy to get wrong:
   rules of its own. The server stores and returns, in one order for every
   device; it does not decide which version wins.
 - **Hold secrets it does not need.** It carries user state, not provider
-  credentials: a connection arrives with the names of its passwords, never the
-  values. Phase 4 adds passwords sealed on the device — ciphertext the server
-  stores and cannot open.
+  credentials: a connection's passwords arrive sealed on the device, as
+  ciphertext the server stores verbatim and cannot open. Nothing here may ever
+  ask for the account password itself.
 - **Assume one device or one client.** Several devices sync against the same
   account concurrently.
 
@@ -98,7 +102,8 @@ src/cli.ts         sc-sync: invite, accounts, devices, revoke, delete-account, b
 src/app.ts         every route
 src/store/         the database: migrations, accounts, devices, invites, the log
 src/auth/          proofs, tokens, invites, the throttle
-test/              vitest: the store, auth, HTTP, a crash test, the command line
+test/              vitest: the store, auth, HTTP, a crash test, the command line, the real plugin
+Dockerfile         two stages; @sc/api comes in as the `api` build context
 ```
 
 ## Rules that break silently
@@ -115,9 +120,12 @@ test/              vitest: the store, auth, HTTP, a crash test, the command line
 - **Restore only through SQLite's backup API**, and renew every epoch after:
   devices must learn the log is not the one they knew.
 - **The crash points are test-only** (`SC_SYNC_TEST_HOOKS=1`).
+- **The lock names its host.** Process ids mean nothing across containers on
+  one volume: a lock from another host is never taken for a dead process.
 
 ## Current state
 
 Built and tested: accounts from invites, devices and tokens, one log per
-account, throttling, and the command line. The `custom-server` plugin that
-talks to it, and the Docker image, come next.
+account, throttling, the command line, and the real `custom-server` plugin
+against it. The Dockerfile and compose file are written and their steps run
+under Node; the image itself is first built wherever Docker is.

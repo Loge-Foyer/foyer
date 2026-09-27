@@ -57,8 +57,10 @@ The server is built and tested: accounts from invites, devices and their
 tokens, one log per account (idempotent pushes, the accepted prefix, cursors
 that answer `reset` for another log), throttling, and `sc-sync` for invites,
 devices, backups and restores. `npm test` runs the store, auth and HTTP
-suites, a crash test against the bundle, and the command line. The
-`custom-server` plugin that talks to it, and the Docker image, come next.
+suites, a crash test against the bundle, the command line, and the real
+`custom-server` plugin against the server. The Dockerfile and compose file
+are written, and their steps were run under Node: Docker is not installed
+where they were written.
 
 ## Git
 

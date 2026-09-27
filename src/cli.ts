@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 
 import { inviteHash, newInviteCode } from './auth/invites';
 import { databaseFile, readConfig } from './config';
-import { lockHolder } from './lock';
+import { lockHolder, lockPath } from './lock';
 import { accountByName, deleteAccount, listAccounts, renewEpochs } from './store/accounts';
 import { openDatabase } from './store/db';
 import { deleteDevice, devicesOf } from './store/devices';
@@ -44,7 +44,12 @@ async function main(argv: readonly string[]): Promise<number> {
   if (command === 'restore') {
     if (!argument || !existsSync(argument)) return fail(`There is no backup at ${argument ?? '(none given)'}.`);
     const holder = lockHolder(dataDir);
-    if (holder !== undefined) return fail(`The server is running (process ${holder}). Stop it, then restore.`);
+    if (holder?.kind === 'running') return fail(`The server is running (process ${holder.pid}). Stop it, then restore.`);
+    if (holder?.kind === 'elsewhere') {
+      return fail(
+        `The server on ${holder.host} holds this data. Stop it, then restore. If it is stopped already — it crashed — remove ${lockPath(dataDir)}.`,
+      );
+    }
     mkdirSync(dataDir, { recursive: true });
     // Through SQLite, never a file copy: a copy beside a stale write-ahead log would replay old pages over it.
     const source = new DatabaseSync(argument, { readOnly: true });
