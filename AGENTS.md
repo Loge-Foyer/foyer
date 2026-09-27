@@ -3,8 +3,8 @@
 The self-hosted sync server. Read the workspace root `AGENTS.md` and
 `../.claude/streaming-center-architecture.md` first.
 
-**Nothing is implemented. This repository is documentation only** — but the
-protocol it will serve is real: `docs/protocol` is what the client speaks.
+The server is built: TypeScript on Node 24, Hono, one SQLite file.
+`docs/protocol` is what the client speaks; `docs/api` is every route.
 
 ---
 
@@ -90,17 +90,34 @@ these properties are load-bearing and easy to get wrong:
 
 ---
 
-## Not yet decided
+## Shape
 
-Language and runtime, authentication model, storage, multi-user hosting,
-transport. All open. Record the decision and its reasoning in `docs/` when made.
+```
+src/main.ts        the server: config, lock file, database, Hono, shutdown
+src/cli.ts         sc-sync: invite, accounts, devices, revoke, delete-account, backup, restore
+src/app.ts         every route
+src/store/         the database: migrations, accounts, devices, invites, the log
+src/auth/          proofs, tokens, invites, the throttle
+test/              vitest: the store, auth, HTTP, a crash test, the command line
+```
 
-One consideration worth weighing: implementing it in TypeScript would let it
-share `@sc/api` directly, which removes any possibility of the client and
-server disagreeing about the wire format.
+## Rules that break silently
+
+- **Never re-serialize a change.** Store it as sent and splice it back into the
+  page: a field this server does not know must still reach the devices that do.
+- **Check pushes with `@sc/api`'s `isSyncChange`**, size limit included — the
+  client refuses the same changes, so neither side stalls the other.
+- **A transaction around every push.** A storage error rolls it back and
+  answers 503: nothing accepted is ever lost, nothing half-stored is ever
+  confirmed.
+- **Never an account-wide lock.** Throttle per name and address, per device,
+  per address — never so that a stranger can keep the owner out.
+- **Restore only through SQLite's backup API**, and renew every epoch after:
+  devices must learn the log is not the one they knew.
+- **The crash points are test-only** (`SC_SYNC_TEST_HOOKS=1`).
 
 ## Current state
 
-`docs/` and these three documents. No code, no dependencies, no build. The
-client side is real: the app's sync engine, the `mock` plugin's pretend
-account, and two-device tests in the app repository.
+Built and tested: accounts from invites, devices and tokens, one log per
+account, throttling, and the command line. The `custom-server` plugin that
+talks to it, and the Docker image, come next.

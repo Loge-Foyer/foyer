@@ -1,7 +1,6 @@
 # CLAUDE.md — streaming_center_sync
 
-The self-hosted sync server. **Nothing is implemented yet** — this repository is
-documentation only.
+The self-hosted sync server: TypeScript on Node 24, Hono, one SQLite file.
 
 ## Reading protocol — before you plan, edit or run anything
 
@@ -22,19 +21,16 @@ server they run themselves that does one job — carry app state between their
 own devices. Jellyfin keeps its own watch status, through its media role; that
 is not this server's job.
 
-## Before writing any code here
+## Decided
 
-Two questions are open and should be answered deliberately, in `docs/`, rather
-than settled by whatever gets typed first:
+`docs/README.md` records each decision and why: the runtime (TypeScript, so
+`@sc/api` is the wire format), storage, keys, tokens, throttling, backups.
+Change one there first.
 
-**What runtime?** TypeScript would let the server consume `@sc/api`
-directly, which makes it structurally impossible for client and server to
-disagree about the wire format. That is a real advantage over any other choice,
-and worth weighing seriously against familiarity or deployment preference.
-
-**What authentication?** This is a personal server holding a viewing history.
-The threat model is not the same as a public service, and over-engineering it
-will stop it from ever being finished.
+**The server never has a key.** The device derives a sign-in proof and a
+wrapping key from the account password; the server stores SHA-256 of the proof
+and a vault key wrapped on the device. Connection passwords reach it sealed
+with that vault key. Nothing here may ever ask for the password itself.
 
 ## The rule most likely to be broken
 
@@ -57,8 +53,12 @@ device's own changes to it on `pull`: it waits to see them.
 
 ## Current state
 
-`docs/` with five topic folders, and these three documents. No code, no package
-manifest, no build. `docs/protocol` is written — the client side is real.
+The server is built and tested: accounts from invites, devices and their
+tokens, one log per account (idempotent pushes, the accepted prefix, cursors
+that answer `reset` for another log), throttling, and `sc-sync` for invites,
+devices, backups and restores. `npm test` runs the store, auth and HTTP
+suites, a crash test against the bundle, and the command line. The
+`custom-server` plugin that talks to it, and the Docker image, come next.
 
 ## Git
 

@@ -3,8 +3,8 @@
 A small server you run yourself, so your viewing history follows you between
 your own devices.
 
-**No server is built yet.** The protocol it will speak is real: the app speaks
-it today, to a pretend account in development builds.
+It is built: `npm install && npm run build && npm start`, then an invite
+from `npm run sc-sync -- invite`. `docs/getting-started` has the rest.
 
 ---
 
@@ -52,16 +52,17 @@ all belong elsewhere on purpose.
 
 ## Current state
 
-Documentation only. No code.
+The server runs. It keeps one log per account in a single SQLite file, stores
+every change once however often a device sends it, answers only for what is on
+disk, and survives being killed half-way through a push without losing or
+duplicating anything — its tests kill it there to make sure.
 
-The client side of the protocol is real now: the app signs in to an account,
-sends every change it makes and applies every change the account holds, and its
-tests prove several devices end up the same through lost answers, partial
-pushes and an account that forgets. `docs/protocol` is that protocol, as the
-client speaks it — what this server must answer.
+Accounts are created from the app with a one-time invite, so whoever runs the
+server never learns the password. The server never sees the key your
+connections' passwords are sealed with, either: it stores what it cannot open.
 
-The runtime, the authentication model and the storage layer are still open,
-and can now be chosen against a protocol that exists.
+The app's side — the plugin that talks to it, and signing in from Welcome and
+Settings — comes next.
 
 ## Documentation
 

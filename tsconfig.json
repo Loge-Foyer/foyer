@@ -1,0 +1,22 @@
+{
+  // The server runs on Node, so this program has Node's types — unlike api
+  // and the plugins, whose own program has none. `@sc/api` is its source,
+  // aliased, never installed: one copy, and nothing a Docker build must fetch.
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "lib": ["esnext"],
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@sc/api": ["../streaming_center_plugins/api/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

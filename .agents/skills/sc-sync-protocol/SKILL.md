@@ -95,14 +95,25 @@ Depend on `@sc/api` from the plugins repository for the change and cursor types,
 so client and server cannot drift apart on what a change looks like. Never
 depend on the app.
 
+## How this server keeps them
+
+- **Idempotent:** `UNIQUE (account_id, change_id)` on the log; a push checks
+  each id before inserting, inside one `BEGIN IMMEDIATE` transaction.
+- **The prefix:** `pushChanges` stops at the first change `isSyncChange`
+  refuses and commits what came before; a storage error rolls the whole push
+  back and answers 503. `synchronous = FULL` puts the commit on disk before the
+  answer.
+- **Verbatim:** a change is stored as sent and spliced back into the page — a
+  field this server does not know still reaches the devices that do.
+- **Cursors** carry the account's epoch, a position and the change id there:
+  another epoch, a position past the end, or another change at it answers
+  `reset`. `sc-sync restore` renews every epoch.
+- **`expired`** is never answered: nothing is compacted yet.
+
+`test/store.test.ts` and `test/crash.test.ts` prove each of these; run them
+after any change to `src/store/changes.ts`.
+
 ## Current state
 
-**Nothing is implemented.** No runtime chosen, no manifest, no build. The client
-side of the protocol is real now — the app's sync engine, the `mock` plugin's
-pretend account, and two-device tests in the app — so the runtime,
-authentication model and storage can be chosen against it.
-
-Record the decision and its reasoning in `docs/` when it is made. One
-consideration: TypeScript would let the server consume `@sc/api` directly,
-making it structurally impossible for client and server to disagree about the
-wire format.
+Built and tested — `docs/README.md` has the decisions and why. The
+`custom-server` plugin that talks to it comes next.
