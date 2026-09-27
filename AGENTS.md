@@ -3,7 +3,8 @@
 The self-hosted sync server. Read the workspace root `AGENTS.md` and
 `../.claude/streaming-center-architecture.md` first.
 
-**Nothing is implemented. This repository is documentation only.**
+**Nothing is implemented. This repository is documentation only** — but the
+protocol it will serve is real: `docs/protocol` is what the client speaks.
 
 ---
 
@@ -39,26 +40,42 @@ apart on what a change looks like. Depends on nothing else from the project —
 ## The protocol it must implement
 
 Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
-`getStatus`. Three properties are load-bearing and easy to get wrong:
+`getStatus`, and `verifyOwner` for Forgot PIN. `docs/protocol` has all of it;
+these properties are load-bearing and easy to get wrong:
 
-1. **`push` must be idempotent at the server.** A client may resend the same
-   change after a crash or a network failure. Accepting it twice must not
-   duplicate state.
+1. **`push` is idempotent by change id, for ever.** A client resends a change
+   after a lost answer, possibly days later. Stored twice, the copy lands after
+   newer changes from other devices and undoes them. Remember every id stored,
+   even after compacting the data.
 
-2. **The response must report the accepted prefix.** The client advances its
-   checkpoint only across changes the server confirms, and retries the rest
-   verbatim. Confirming changes you did not durably store causes silent data
-   loss on the client.
+2. **`accepted` is a prefix of the ids sent, each durably stored.** The client
+   advances its checkpoint only across it and resends the rest verbatim.
+   Confirming a change you did not store loses it silently.
 
-3. **`pull` must be resumable via an opaque cursor.** The client stores it per
-   connection. It must remain valid across restarts.
+3. **`pull` returns the caller's own changes.** The client waits to see each
+   change it pushed come back before letting older changes to that entity
+   through. Filter them out and that device waits for ever.
+
+4. **`pull` resumes from an opaque cursor** that stays valid across restarts
+   and deploys.
+
+5. **`reset` and `expired` mean different things.** `reset`: the account lost
+   data, and devices upload what they hold again. `expired`: only the cursor
+   is gone, and devices read from the start without uploading. Mixing them up
+   either overwrites newer edits or leaves data lost.
+
+6. **Check pushes with `isSyncChange`.** A change it refuses ends the accepted
+   prefix, like one that failed to store.
 
 ## What it must never do
 
-- **Resolve conflicts.** The client owns that. The server stores and returns;
-  it does not decide which version wins.
+- **Resolve conflicts.** The client owns that, by the log's order and four
+  rules of its own. The server stores and returns, in one order for every
+  device; it does not decide which version wins.
 - **Hold secrets it does not need.** It carries user state, not provider
-  credentials.
+  credentials: a connection arrives with the names of its passwords, never the
+  values. Phase 4 adds passwords sealed on the device — ciphertext the server
+  stores and cannot open.
 - **Assume one device or one client.** Several devices sync against the same
   account concurrently.
 
@@ -66,9 +83,10 @@ Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
 
 `.agents/skills/` in this repository:
 
-- **`sc-sync-protocol`** — implementing the protocol correctly: idempotent push,
-  accepted-prefix confirmation, resumable cursors, and what the server must
-  never do.
+- **`sc-sync-protocol`** — implementing the protocol correctly: idempotent push
+  by change id, accepted-prefix confirmation, a device's own changes returned,
+  resumable cursors, `reset` versus `expired`, and what the server must never
+  do.
 
 ---
 
@@ -83,4 +101,6 @@ server disagreeing about the wire format.
 
 ## Current state
 
-`docs/` and these three documents. No code, no dependencies, no build.
+`docs/` and these three documents. No code, no dependencies, no build. The
+client side is real: the app's sync engine, the `mock` plugin's pretend
+account, and two-device tests in the app repository.

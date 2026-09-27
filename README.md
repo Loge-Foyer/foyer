@@ -3,7 +3,8 @@
 A small server you run yourself, so your viewing history follows you between
 your own devices.
 
-**Nothing is built yet.** This repository is currently a plan.
+**No server is built yet.** The protocol it will speak is real: the app speaks
+it today, to a pretend account in development builds.
 
 ---
 
@@ -53,9 +54,14 @@ all belong elsewhere on purpose.
 
 Documentation only. No code.
 
-The runtime, the authentication model and the storage layer are all still open
-questions — deliberately so, since they are easier to answer well once the
-client side of the protocol is real.
+The client side of the protocol is real now: the app signs in to an account,
+sends every change it makes and applies every change the account holds, and its
+tests prove several devices end up the same through lost answers, partial
+pushes and an account that forgets. `docs/protocol` is that protocol, as the
+client speaks it — what this server must answer.
+
+The runtime, the authentication model and the storage layer are still open,
+and can now be chosen against a protocol that exists.
 
 ## Documentation
 
