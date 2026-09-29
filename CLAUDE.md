@@ -1,66 +1,74 @@
 # CLAUDE.md — streaming_center_sync
 
-The self-hosted sync server: TypeScript on Node 24, Hono, one SQLite file.
+Your own server: PocketBase, used as a Go framework — collections per user,
+invites, the profile limit.
 
 ## Reading protocol — before you plan, edit or run anything
 
-1. `../.claude/streaming-center-architecture.md`, especially section 8 (sync
-   plugins) and section 9 (local-first writes and syncing with the account).
-   The server is the other end of that contract.
+1. `../.claude/streaming-center-architecture.md`, especially §7 (the account
+   role), §9 (syncing with your own server), §10 (conflicts) and §17 (your own
+   server). The server is the other end of that contract.
 2. `../CLAUDE.md` — how the three repositories relate.
 3. `AGENTS.md` here — imported below.
-4. `docs/protocol/` — the protocol as the client speaks it.
+4. `docs/protocol/` — the protocol as the client speaks it — and `docs/api/`.
 
 @AGENTS.md
 
 ## Why this exists
 
-Someone running Jellyfin at home may not want their profiles and history stored
-with Apple or with Google. This is the other account a device can have: a small
-server they run themselves that does one job — carry app state between their
-own devices. Jellyfin keeps its own watch status, through its media role; that
-is not this server's job.
+Someone running Jellyfin at home may not want their household's profiles and
+sources stored with Apple or with Google. This is the account they run
+themselves: a small server that does one job — keep the account in step
+between their own devices. Jellyfin keeps its own watch status, through its
+media role; that is not this server's job.
+
+It is PocketBase because PocketBase already is most of it: users, password
+sign-in and sessions, rules per user, batch writes in one transaction, a
+dashboard, backups and rate limits. The Go code here is the rest — migrations,
+a few hooks, two routes and a command — and should stay that small.
 
 ## Decided
 
-`docs/README.md` records each decision and why: the runtime (TypeScript, so
-`@sc/api` is the wire format), storage, keys, tokens, throttling, backups.
-Change one there first.
+`docs/README.md` records each decision and why: PocketBase and Go, its own
+sign-in and sessions, plain-text credentials for now, invites, tenancy, the
+profile limit, backups, deployment. Change one there first.
 
-**The server never has a key.** The device derives a sign-in proof and a
-wrapping key from the account password; the server stores SHA-256 of the proof
-and a vault key wrapped on the device. Connection passwords reach it sealed
-with that vault key. Nothing here may ever ask for the password itself.
+**Credentials are plain text on this server, for now.** Source and IPTV
+passwords sit in `secrets` as typed; the account password is PocketBase's
+bcrypt hash. So `pb_data`, its backups and a superuser login are as sensitive
+as every password the household uses. Say so wherever it matters, and never
+quietly weaken TLS, the dashboard's privacy or how backups are kept.
 
 ## The rule most likely to be broken
 
-**The server does not resolve conflicts.** It stores changes and returns them,
-in one order for every device. The client decides, by that order and rules of
-its own: a change it has not seen come back protects its entity, and deletes
-of profiles and connections always win. Watch progress, when it travels, will
-resolve by furthest position — never by timestamp, because a device reporting
-position 0 on stop would otherwise erase real progress.
+**The server does not resolve conflicts.** It stores what the rules allow and
+returns it. The client decides: a pending change protects its entity, deletes
+of profiles and connections always win, and otherwise the last push wins,
+whole. Watch progress, when it travels, will resolve on the client by the
+furthest position — never by timestamp, because a device reporting position 0
+on stop would otherwise erase real progress.
 
-A server that helpfully picks a winner, reorders, or merges two changes will
-silently corrupt all of that.
+A server that helpfully picks a winner by `updated`, merges two writes field by
+field, or refuses a write because it looks older will silently break all of
+that, and the devices stop converging.
 
 ## The second rule
 
-**Only confirm what you durably stored.** The client advances its checkpoint
-across the prefix of changes the server accepts and retries the rest. Confirming
-a change you then lose means the client will never send it again. And return a
-device's own changes to it on `pull`: it waits to see them.
+**What a device reads must be the whole account, and only its own.** The
+client takes a record it holds and the server lacks for one the server lost,
+and uploads it again. So a list must never come back short: not for a guest —
+a session that ended answers `401` — not because something was removed by
+hand, and not because a rule filtered it by mistake. And never another user's
+record: several households share a server.
 
 ## Current state
 
-The server is built and tested: accounts from invites, devices and their
-tokens, one log per account (idempotent pushes, the accepted prefix, cursors
-that answer `reset` for another log), throttling, and `sc-sync` for invites,
-devices, backups and restores. `npm test` runs the store, auth and HTTP
-suites, a crash test against the bundle, the command line, and the real
-`custom-server` plugin against the server. The Dockerfile and compose file
-are written, and their steps were run under Node: Docker is not installed
-where they were written.
+**Phase 5 — the new architecture, written down.** Until Phase 6 replaces it,
+this repository still holds the TypeScript server from Phase 4: Node 24, Hono,
+one SQLite file, one log per account, `sc-sync`, port 8730. `npm test` runs its
+suites, and today's `custom-server` plugin speaks its protocol. Phase 6 builds
+the PocketBase server described here — the Go tests, then the harness — and
+deletes the TypeScript.
 
 ## Git
 

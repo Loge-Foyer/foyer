@@ -1,238 +1,288 @@
-# Sync protocol
+# Account protocol
 
-The protocol as the client speaks it. The app reaches an account through a
-sync plugin's `ConnectedUserStateSyncProvider` (`@sc/api`, in
-`streaming_center_plugins/api/src/sync.ts`); this server is the other end of
-the `custom-server` plugin, and `test/plugin.test.ts` drives that plugin
-against it. The development-only `mock` plugin implements the same contract
-in memory, and the app's tests run two devices against a fake account on
-every pair of database engines to hold the client to it.
+The protocol as the client speaks it. The app reaches your own server through
+the `sync/custom-server` plugin's `ConnectedAccount` (`@sc/api`, in
+`streaming_center_plugins/api/src/account.ts`); this server is the other end,
+and the harness here drives that plugin against the real binary. The
+development-only `sync/mock` plugin plays a pretend PocketBase in memory, and
+the app's tests run two devices against a fake one on every pair of database
+engines to hold the client to it.
 
-Everything below is what the client relies on. How each call reaches this
-server is at the end; `docs/api` has every route.
+Everything below is what the client relies on. How each call reaches the
+server is at the end; `docs/api` has the routes, the collections and their
+rules.
 
-## One log
+> **Until Phase 6** this repository holds Phase 4's server, and today's plugin
+> speaks Phase 4's protocol to it. This page describes the protocol that
+> replaces both.
 
-An account is one log: an ordered list of changes. Every device appends to it
-(`push`) and reads it (`pull`).
+## An account is its records
 
-- **The log's order is the truth.** There are no clocks. A change carries
-  `changedAt`, the time on the device that made it, for display only; nothing
-  is ordered by it.
-- **The server stores and returns.** It never merges two changes, never picks
-  a winner, never rewrites or reorders a change, and never drops one silently.
-  Conflicts are the client's, and the client resolves them by the log's order.
-- **Several devices push at once.** The server serializes them: each change it
-  accepts takes the next place in the log.
+An account is small: at most `maxProfiles` profiles, their PINs and
+preferences, and a few connections. So a device keeps it in step the simplest
+way that works: it pushes what changed, then reads all of it.
 
-## A change
+- **The server's tables are the truth.** One collection per kind of record,
+  one PocketBase user per account. There are no cursors, logs or epochs to
+  keep straight.
+- **The server stores what the rules allow, and returns it.** It never merges
+  two writes, never picks a winner, never decides by a clock. Conflicts are the
+  client's (below).
+- **Several devices push at once.** SQLite takes their batches one at a time,
+  and each is whole before the next begins.
+
+## A record
 
 ```ts
-{ id, changedAt, entity, operation: 'upsert', data }
-{ id, changedAt, entity, operation: 'delete', target }
+{ kind, key, deleted: false, data }
+{ kind, key, deleted: true }
 ```
 
-| Entity | Upsert data | Delete target | Key |
+| Kind | Collection | Data | Key |
 | --- | --- | --- | --- |
-| `profile` | `userId`, `name` | `userId` | `profile/{userId}` |
-| `pin` | `userId`, `pin` — four digits, or `null` | never deleted: `pin: null` removes it | `pin/{userId}` |
-| `preferences` | `userId`, `key`, `value` (any JSON) | `userId`, `key` | `preferences/{userId}/{key}` |
-| `connection` | `connectionId`, `pluginId`, `label`, `media`, `perProfile`, `fields`, `settings`, `secretKeys`, `sealed?` | `connectionId` | `connection/{connectionId}` |
-| `profileValues` | `connectionId`, `userId`, `off`, `fields`, `settings`, `secretKeys`, `sealed?` | `connectionId`, `userId` | `profileValues/{connectionId}/{userId}` |
+| `profile` | `profiles` | `userId`, `name` | `{userId}` |
+| `pin` | `profile_pins` | `userId`, `pin` — four digits, or `null` | `{userId}` |
+| `preference` | `preferences` | `userId`, `name`, `value` (any JSON) | `{userId}/{name}` |
+| `connection` | `connections` | `connectionId`, `pluginId`, `label`, `enabled`, `perProfile`, `fields`, `settings`, `secretKeys`, `secrets` | `{connectionId}` |
+| `profileValues` | `connection_profile_values` | `connectionId`, `userId`, `off`, `fields`, `settings`, `secretKeys`, `secrets` | `{connectionId}/{userId}` |
 
-- **`id`** is unique for ever, and the same every time the change is sent
-  again: one random id per change the device made. At most 128 characters, and
-  never a `/`, since ids join into keys.
-- **The key** (`syncKey`) is what a change is about. The client's rules work
-  per key; the server has no reason to read one.
-- **`isSyncChange`** checks every shape, the PIN's four digits included. The
-  client checks every pulled change with it and skips, with a log line, any it
-  refuses — that is how an older client passes over an entity it does not
-  know yet. The server should check every pushed change with it too.
+- **The key** (`recordKey`) is the app's own id, or its natural key. Ids are
+  at most 128 characters and never hold a `/`, since they join into keys.
+- **`userId` is a profile.** The app calls its profiles users. On the server,
+  `users` are accounts, and a record's `user` is the account that owns it; the
+  collections call a profile `profile`.
+- **`pluginId` is `sources/*` or `iptv/*`**, never a player or a sync plugin:
+  only account-wide connections travel.
+- **`isAccountRecord`** checks every shape: the four digits, a known
+  per-profile mode, field values that are text, a switch or a library
+  selection, secrets only for names the record lists, at most
+  `MAX_RECORD_LENGTH` of JSON. The app checks every record it reads with it,
+  and skips — with a log line, never the payload — any it refuses. That is how
+  an older app passes over a kind it does not know yet.
+- **The server judges alike.** Its collections and hooks accept and refuse
+  what `isAccountRecord` does, and `api/fixtures/account-records.json` holds
+  both sides to it.
 
-**What never travels:** session tokens, credential refs, a connection's sync
-role (each device chooses its own account), the account's own connection,
-device settings such as the default profile or which plugins are installed —
-and passwords, except sealed by the app (below). `secretKeys` lists the
-*names* of a connection's saved passwords, so a device without them asks for
-them instead of signing in with nothing.
+### On the server
+
+A record is a PocketBase record in its kind's collection:
+
+- `user` — the account; it cascades when the account is deleted
+- `key` — the record's key
+- `deleted`
+- the data, in snake_case: `plugin_id`, `per_profile`, `secret_keys`
+- a child's parents, as relations — `profile`, `connection` — so a batch sends
+  parents first
+
+**Record ids are derived by the plugin** from the account's id and the key. A
+resent write lands on the same record, and two accounts on one server never
+collide. The server never picks the id of a record a device writes; the first
+profile the sign-up route creates gets the id the plugin would derive for it.
+
+### What never travels
+
+- session tokens and credential refs
+- `position` and `version`
+- device settings: the default profile, players, sync settings
+- sync-category connections — this server's own sign-in among them
+- connections of plugins the device's build does not register
+
+A connection lists the names of its saved passwords in `secretKeys`, so a
+device where one is missing asks for it instead of signing in with nothing.
 
 **The PIN travels readable.** It keeps a child out of a parent's profile; it is
 not an account secret (spec §17). The server stores it like any other value.
 
-## `push`
+## Deletes are soft
+
+- **A delete is a write.** The record stays, `deleted: true`, its payload
+  cleared — secrets included. It keeps what identifies it: `user`, `key` and
+  its parents.
+- **Every device learns of a delete by reading.** And a server that lost a
+  record can be told apart from one that deleted it: a missing record was
+  lost, a tombstone was deleted.
+- **Deleted stays deleted for profiles and connections.** Their ids are random
+  and never come back, so an update that would un-delete one is refused
+  (`deleted`). PINs, preferences and per-profile values have natural keys, and
+  can be deleted and set again.
+- **Nothing of an account is removed but with the account.** Deleting a user
+  takes every record of it; nothing else does. A record removed by hand would
+  read as lost, and the devices would upload it again.
+- **A soft delete does not cascade.** A deleted profile's PIN and preferences
+  stay as they were, and every device skips a record whose parent is gone.
+
+## Secrets
+
+`connections` and `connection_profile_values` carry two fields for passwords:
+`secret_keys`, the names of the saved password fields, and `secrets`, their
+values, **in plain text**.
+
+- **A name listed without a value keeps the stored one.** A device that lacks
+  a password — an Android restore brings the database back without the
+  keystore — still writes a connection's other changes, and the password other
+  devices saved survives. A name no longer listed drops its value.
+- **A delete clears them.**
+- **On a device** they go straight to the keychain, under fresh refs. The
+  device database never holds one.
+
+## `push`: one batch, all or nothing
 
 ```ts
-push(changes) → { accepted: string[] }
+push(records) →
+  | { kind: 'stored' }
+  | { kind: 'refused', index, reason: 'limit' | 'deleted' | 'invalid' }
 ```
 
-- **Idempotent by id.** A change whose id the account has already stored is
-  accepted again and stored once. The server remembers every id it has stored
-  for as long as the account exists — compaction may drop a change's data,
-  never the memory of its id. A resend can come much later: a device whose
-  answer was lost may be offline for a week before it tries again. Stored
-  twice, the copy would land after newer changes from other devices and
-  quietly undo them.
-- **`accepted` is a prefix of the ids sent**, in order, and each accepted
-  change was durably stored before the answer left. The client moves its place
-  in its own journal across that prefix only and sends everything after it
-  again, verbatim, on its next run:
+- **What goes.** The journal after the checkpoint: each journaled entity as an
+  upsert of its current row, its passwords read from the keychain, or as a
+  soft delete. Parents first: a profile before its PIN and preferences, a
+  connection before its profiles' values.
+- **One transaction.** Every write in the batch is stored, or none is.
+  `stored` means all of it is on disk.
+- **A refusal names the write that stopped it**, by its place in the batch:
+  - `limit` — a new live profile beyond `SC_MAX_PROFILES`; deleted ones do not
+    count
+  - `deleted` — a write that would bring back a deleted profile or connection
+  - `invalid` — anything else the rules refuse: a malformed record, one naming
+    another account, a child whose parent the server lacks
+- **The client deals with it.** It splits a refused batch to find the write,
+  then:
+  - a profile over the limit stays on this device only, and says so
+  - a write to a deleted profile or connection gives way to the delete
+  - the checkpoint moves past what was stored
+- **A resend is safe.** Every write is an upsert by a derived id, so a batch
+  whose answer was lost stores the same thing when it is sent again. It can
+  overwrite an edit another device made in between: a known limit, and the
+  devices still converge.
+- **Only a refusal names a write.** A batch that fails without naming one —
+  the server busy, its time up — stored nothing and judged nothing; the client
+  tries again later.
 
-  ```
-  client sends   [c1 c2 c3 c4 c5]
-  server stores  [c1 c2 c3], then fails on c4
-  server answers accepted: [c1 c2 c3]
-  client sends   [c4 c5] next time
-  ```
-
-  Answering for a change that was not stored loses it for good: the client
-  will never send it again.
-- **A change the server refuses ends the prefix**, like one it failed to
-  store. The client builds only changes `isSyncChange` accepts, so a refusal
-  means a broken client, and ending the prefix makes it stall rather than lose
-  anything.
-- **A lost answer is survivable.** The change is in the log; the client did not
-  hear so, sends it again (deduplicated), and meanwhile recognises its own id
-  when the change comes back through `pull`.
-
-## `pull`
+## `pull`: everything
 
 ```ts
-pull(cursor?) →
-  | { kind: 'changes', changes, cursor, more }
-  | { kind: 'reset' }
-  | { kind: 'expired' }
+pull() → { records }   // every record of the account, deleted ones included
 ```
 
-- **The whole log in order**, from after the cursor, or from the start without
-  one. Page size is the server's choice; `more` says whether to ask again.
-- **The caller's own changes are included.** The client relies on seeing each
-  change it pushed come back: until it does, that change protects its key from
-  older changes still arriving, and it is how every device ends up applying the
-  same log. A server that leaves out a device's own changes leaves that device
-  waiting for them for ever.
-- **The cursor is opaque** to the client, kept per account, and must stay valid
-  across server restarts and deploys: it lives on devices the server does not
-  control. Do not assume the cursor received is recent.
-- **`reset`** — the account lost data (restored from a backup, wiped), or the
-  cursor points into a log that is no longer the one it was issued for. The
-  client joins again: it reads the whole log, settles it against what it holds
-  (its own rows win where both have something), and announces its rows, so the
-  account gets back what it lost.
-- **`expired`** — the cursor was compacted away, but nothing was lost. The
-  client reads the log from the start and applies it under the usual rules,
-  sending nothing extra: re-uploading would overwrite newer edits from other
-  devices. This server compacts nothing yet, so it never answers `expired`.
-
-The two are not interchangeable. `reset` for a mere expiry makes every device
-upload everything again, overwriting newer edits; `expired` after a data loss
-leaves the account without what it lost.
+- **A handful of list requests**: each collection, paged. The rules return
+  the caller's records and nobody else's; the client asks for no filter.
+- **Complete, or an error.** A record left out reads as lost, and a device
+  would upload its own copy over it. So a session that ended is a `401`, never
+  an empty list, and a read that fails half-way is thrown away.
+- **Paged by `id`.** A write between two pages can repeat a record, but never
+  hide one — which holds because nothing is ever removed.
 
 ## How the client decides
 
-The server does none of this; it is here so nothing on the server gets in its
-way. A device applies pulled changes in log order, with four rules:
+The server does none of this; it is here so that nothing on the server gets in
+its way.
 
-1. A change this device has not had back from the account — still to be sent,
-   or accepted and not yet returned — protects its key. A pulled change to that
-   key is skipped: this device's is later in the log, and wins.
-2. A remote delete of a profile or a connection always applies.
-3. A device's own changes come back and are applied like any other, which is
-   what makes every device converge.
-4. A pulled change carrying the id of a change the device still means to send
-   is that change's lost acknowledgement.
+1. **Plan**, outside any transaction: PINs and passwords go into the keychain
+   under fresh refs.
+2. **Apply**, in one unjournaled transaction:
+   - An entity with a pending local change is skipped: this device's change
+     goes next, and wins.
+   - A deleted profile or connection is deleted here, always.
+   - Otherwise the server's version replaces the local one where they differ.
+   - A local row the server does not have, and that is not pending, was lost
+     by the server — a restore — so it is announced again, and the next push
+     puts it back.
+3. **Clean up:** stale refs go through the janitor, and the engine tells its
+   listeners.
 
-A page is applied together with its new cursor in one transaction, and only
-while the cursor it was pulled from is still the stored one — two tabs of the
-same browser never apply the same page twice.
+Conflicts are settled per entity, and never by a clock: a pending change
+first, then deletes of profiles and connections, then the last push, whole.
+Two devices editing one connection end on whichever pushed last; nothing is
+merged field by field. Every device applies the same server state, and so they
+converge.
 
-Two narrow exceptions to rule 1, both about passwords:
+That asks four things of the server:
 
-- A connection whose address or plugin a pulled change moves takes the
-  passwords off every profile whose sign-in moved with it — even a profile
-  this device changed. They were saved for where it signed in before.
-- A password a device's row lists but its store lacks is filled in from a seal
-  made for that row's own sign-in, even from a change the device skips. Its own
-  change still wins everything else.
+- every user sees all of their own records, and nobody else's
+- deletes are soft, and a deleted profile or connection stays deleted
+- a batch is all or nothing
+- nothing on it decides between two versions — not `updated`, not a merge
 
-## Signing in, and the owner
+Watch progress, when it travels, will need more than the last push: a device
+that stops playback and reports position 0 would erase real progress. It will
+get a field-aware rule on the client — completed first, then the furthest
+position — never a timestamp on the server.
 
-- **`getStatus()` → `{ accountName? }`** reaches the account and signs in. It
-  is what "Sign in" tries — once. `accountName` names the new connection on
-  the device.
-- **`verifyOwner(proof)`** is Forgot PIN, and the check before switching
-  accounts or signing out on a device with profiles. `proof` is the fields the
-  manifest's `ownerProof` names — the account password, typed again. It
-  resolves when the owner is verified, and otherwise throws:
-  - `UNAUTHORIZED` — the proof is wrong
-  - `UNAUTHORIZED` with `too-many-attempts` — throttled, so nothing was judged
-  - `UNAUTHORIZED` with `signed-out` — the account no longer knows this device;
-    the device's own check answers instead
-  - anything else — it cannot be asked at all
-- **`createAccount(fields)`** creates the account with the manifest's `signUp`
-  fields — an invite — and signs in; **`signOut()`** lets this device's
-  session go. Both are tried once.
-- **`vaultKey()`** is the key the app seals passwords with, derived on the
-  device. The server never has it.
+## Signing in, sessions and the owner
 
-The account password never reaches the server. The device derives a proof to
-sign in with and a key that wraps the vault key; the server keeps a hash of
-the proof and the wrapped key, and can open neither.
+- **`info()`** needs no sign-in: the server's version, its profile limit and
+  how it takes sign-ups. The app reads its limit from here, and whether to
+  offer "Create an account", with an invite or without.
+- **`status()`** signs in, once: PocketBase's password sign-in, with the
+  username and the saved password. It is what "Sign in" tries, and it answers
+  the account's id and name ("faruk on home.example.com").
+- **A session** is PocketBase's token. It lasts 30 days and is refreshed on
+  every sync. It lives in the device-bound store; the password lives in the
+  keychain, under the connection's credentials ref.
+- **When a session ends** — 30 days offline, the password changed, the account
+  deleted — the next call answers `401`. The plugin signs in again with the
+  saved password: once, shared by every caller. A refusal is latched: parked
+  as "needs sign-in", and never tried again by itself — not on a timer, a
+  network change or "Sync now". Only the user signs in again.
+- **`verifyOwner(proof)`** — the owner check, for Forgot PIN, signing out and
+  switching — is the account password typed again, checked with the same
+  sign-in. Wrong, it throws `UNAUTHORIZED`; throttled, `UNAUTHORIZED` with
+  `too-many-attempts`, which the app words as "too many tries". A server that
+  cannot be reached is a failure, never a quiet fallback to the device.
+- **`createAccount(fields, { firstProfile })`** calls the sign-up route with
+  the invite. It answers like a sign-in, so the device is signed in at once,
+  and it is tried once. A new device asks for a first profile named after the
+  account; a device with a local account asks for none, and its first push
+  uploads everything it holds.
+- **`signOut()`** forgets the session. PocketBase keeps no sessions, so there
+  is nothing to end on the server.
+- **Cutting off a lost device** is changing the account password, in the
+  dashboard. The server refreshes the account's token key when its password
+  changes — with a hook, if PocketBase does not already — so every session
+  ends; the Go tests prove it. Each device's saved password is refused once,
+  and then it asks.
 
 ## Errors
 
 Every call fails only with an `AppError` and a retry hint, and the client
 follows the hint:
 
-| Code | Hint | The client |
+| The server answers | The plugin | The client |
 | --- | --- | --- |
-| `OFFLINE`, `TIMEOUT` | `network-change` or `backoff` | waits for another network, or tries again at 30 s, doubling to 15 min |
-| `PROVIDER_UNAVAILABLE` | `backoff` | tries again later, doubling |
-| `UNAUTHORIZED` | `never` | stops until the user signs in again — never on a timer, a network change or "Sync now" |
-| `UNAUTHORIZED`, `signed-out` | `never` | the same: the server let this device go, and the plugin never signs itself back in |
-| `PROVIDER_UNAVAILABLE`, `too-many-attempts` | `backoff` | a throttled sign-in: nothing judged the password, so it may be tried later |
+| `401` on a call with a session | signs in once with the saved password | carries on, or parks |
+| `400` to a sign-in | throws `UNAUTHORIZED`, `never` | parks until the user signs in again |
+| `429` | throws `PROVIDER_UNAVAILABLE`, `too-many-attempts`, `backoff`; for the owner check, `UNAUTHORIZED`, `too-many-attempts` | waits: nothing judged the password |
+| `5xx`, or no answer in time | throws `PROVIDER_UNAVAILABLE` or `TIMEOUT`, `backoff` | tries again at 30 s, doubling to 15 min |
+| no network, or a home server seen from mobile data | throws `OFFLINE`, `network-change` | waits for another network |
 
-A refused sign-in is never retried by itself: servers lock accounts after a
-few failures.
+A refused sign-in is never retried by itself. PocketBase only slows an address
+down and locks no account, but the rule holds for every server the app talks
+to — and devices behind one home address share a limiter, so one device
+retrying a changed password would throttle the whole household.
 
-## Sealed passwords
+## What plain-text credentials mean
 
-On an account that declares `sealedPasswords`, `connection` and
-`profileValues` carry their passwords in `sealed`, by field:
+- **The account password** reaches the server only to sign in, and PocketBase
+  keeps a bcrypt hash of it.
+- **Source and IPTV passwords** are in `secrets` as typed, and every read
+  carries them. Whoever has `pb_data`, a backup of it, a superuser login, or
+  the traffic without TLS can read every one the household saved.
+- **PINs** are readable too.
 
-```ts
-sealed: { password: 'v1.{key id}.{base64url(nonce ‖ ciphertext ‖ tag)}' }
-```
-
-- **The app seals them** with the account's vault key — AES-256-GCM over the
-  password and the sign-in it was saved for, bound to the change's key and its
-  field. The server never has the key, and nothing on it can open them.
-- **The server stores them verbatim**, like any other value. `isSyncChange`
-  holds them to a shape: keys among the change's `secretKeys`; a version
-  (`v1`, and later ones pass untouched) and base64url parts; at most 4 KiB
-  each, and a whole change at most `MAX_CHANGE_LENGTH` (256 KiB).
-- **A password is used only with the sign-in it was saved for.** A change
-  that points a connection somewhere else — another address, username or
-  plugin — leaves its passwords behind on every device, which then asks. So
-  whoever holds the account can rewrite an address, but cannot send a
-  password there.
+So: TLS anywhere but a trusted home network, the dashboard kept private, and
+backups of `pb_data` kept like password files (`docs/deployment`). Sealing the
+passwords on the devices so the server cannot read them, as Phase 4's server
+did, is a later option; git keeps that code.
 
 ## Over HTTP
 
-How the `custom-server` plugin reaches each call; `docs/api` has the routes
-in full.
-
 | Call | Routes |
 | --- | --- |
-| signing in | `POST /v1/auth/params`, then `POST /v1/auth/login` with the derived proof |
-| `getStatus` | a sign-in if there is no session, then `GET /v1/status` |
-| `pull` | `GET /v1/sync/pull?cursor=` |
-| `push` | `POST /v1/sync/push`, in requests of at most 4 MiB and 1,000 changes; the accepted prefix runs across them |
-| `verifyOwner` | `POST /v1/auth/verify` with a proof derived from the password typed again |
-| `vaultKey` | the session, kept from signing in: the login's answer carries the wrapped key |
-| `createAccount` | `POST /v1/accounts` with the invite |
-| `signOut` | `POST /v1/auth/logout` |
-
-A `401` on any call with a token means the server let the device go —
-`sc-sync revoke`, or the account deleted. The plugin never signs itself back
-in with the saved password: that would undo a revoke.
+| `info` | `GET /api/sc/info` |
+| `status`, and signing in again | `POST /api/collections/users/auth-with-password` |
+| each sync, first | `POST /api/collections/users/auth-refresh` |
+| `pull` | `GET /api/collections/{collection}/records` for each of the five, paged by `id` |
+| `push` | `POST /api/batch`: one upsert per record, `PUT /api/collections/{collection}/records` with its `id` |
+| `verifyOwner` | `POST /api/collections/users/auth-with-password`, with the password typed again |
+| `createAccount` | `POST /api/sc/sign-up` |
+| `signOut` | none: the device forgets its token |

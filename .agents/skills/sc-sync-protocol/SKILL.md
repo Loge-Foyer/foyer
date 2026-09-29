@@ -1,120 +1,141 @@
 ---
 name: sc-sync-protocol
-description: Implement the Streaming Center sync protocol correctly on the server — idempotent push by change id, accepted-prefix confirmation, returning a device's own changes, resumable cursors, reset versus expired, and the things the server must never do. Use when building or debugging any endpoint in the sync server.
+description: The account protocol on the server side — the PocketBase collections and their owner rules, the hooks (no guests, the profile limit, deleted stays deleted, no hard deletes, tombstones cleared, listed secrets kept), the two routes, migrations, and what must stay true for the client's reconciliation. Use when adding or changing a collection, field, rule, hook, route or migration in the sync server, or when debugging what a device reads or pushes.
 ---
 
-# The sync protocol, server side
+# The account protocol, server side
 
-Read `../.claude/streaming-center-architecture.md` sections 8 and 9, then
-`docs/protocol/README.md` — the protocol as the client already speaks it. The
-server is the other end of `ConnectedUserStateSyncProvider`.
+Read `../.claude/streaming-center-architecture.md` §7 (the account role), §9
+(syncing with your own server), §10 (conflicts) and §17 (your own server);
+then `docs/protocol/README.md`, the protocol as the client speaks it, and
+`docs/api/README.md`. The server is the other end of `ConnectedAccount` in
+`api/src/account.ts`.
 
-## The properties that are load-bearing
+## When to use it
 
-### 1. `push` must be idempotent — for ever
+- adding or changing a collection, a field, a rule or an index
+- writing or changing a hook, a route, or the `invite` command
+- writing a migration
+- a device that reads too little or too much, or pushes and is refused
 
-A client resends a change after a crash, a timeout or a lost answer, possibly
-days later. Accepting it twice must not store it twice: the copy would land
-after newer changes from other devices and quietly undo them.
+Not for deployment (`docs/deployment`), and not for the client: the plugin
+and the app's sync engine live in the other repositories.
 
-Key on the change id the client sends, not on arrival order, and remember every
-id you stored even after compacting the data behind it.
+## The collections and their rules
 
-### 2. Confirm only what you durably stored
+| Collection | Holds | Rules |
+| --- | --- | --- |
+| `users` | the account: username, password (bcrypt), email optional | view its own; create nobody, since accounts come from the sign-up route; update and delete superusers |
+| `profiles` | `name` | `user = @request.auth.id` to list, view, create, update |
+| `profile_pins` | `profile`, `pin` | the same |
+| `preferences` | `profile`, `name`, `value`; unique `(profile, name)` | the same |
+| `connections` | `plugin_id` (`sources/*`, `iptv/*`), `label`, `enabled`, `per_profile`, `fields`, `settings`, `secret_keys`, `secrets` | the same |
+| `connection_profile_values` | `connection`, `profile`, `off`, `fields`, `settings`, `secret_keys`, `secrets`; unique `(connection, profile)` | the same |
+| `invites` | the code's hash, expiry, who used it | superusers only |
 
-The response reports which change IDs were **accepted**. The client advances its
-checkpoint across the accepted prefix and retries everything after it.
+Every data record also has `user` (cascading from `users`), `key` (unique per
+user) and `deleted`, and its id is derived by the plugin. Nobody deletes a data
+record through the API.
 
+Traps in PocketBase's own field rules:
+
+- **A required bool must be `true`.** `deleted`, `enabled` and `off` are never
+  required.
+- **A tombstone clears the payload**, so nothing it clears can be required.
+  A hook checks live records instead.
+- **An update rule sees the stored record.** It must also stop a body that
+  names another user, or an update could move a record out of its account.
+- **`users` is open by default** — anyone can register, and a user can update
+  or delete itself. The first migration closes all three.
+
+## The hooks
+
+- **No guests.** PocketBase takes a missing, expired or invalid token for a
+  guest, and a guest's list is empty under the owner rules. Every request on
+  account data, and every batch, answers `401` without a valid session.
+- **The profile limit.** A new live profile beyond `SC_MAX_PROFILES` is
+  refused, `sc_limit`. Deleted profiles do not count.
+- **Deleted stays deleted** for profiles and connections: an un-delete is
+  refused, `sc_deleted`. PINs, preferences and per-profile values may be
+  deleted and set again.
+- **Tombstones are cleared**: a write with `deleted: true` keeps `user`, `key`
+  and the parents, and empties the rest, secrets included.
+- **No hard deletes** of account data, from anyone — the dashboard included.
+  Deleting a user cascades.
+- **Kept secrets**: a name in `secret_keys` that a write gives no value for
+  keeps its stored value; a name dropped from the list drops its value.
+- **A password change ends every session.** The server refreshes the user's
+  token key when the password changes — with a hook, if PocketBase does not
+  already. The Go tests prove it.
+
+They hold for superusers too: the dashboard goes through the same API.
+
+## The two routes
+
+- **`GET /api/sc/info`** — `{ serverVersion, maxProfiles, signUp }`, with no
+  session.
+- **`POST /api/sc/sign-up`** — `{ username, password, invite?, firstProfile }`.
+  The invite is checked first when `SC_SIGNUP=invite`. One transaction makes
+  the user and, with `firstProfile`, a profile named after it — under the id
+  the plugin would derive for its key — and spends the invite. It answers
+  PocketBase's own sign-in response.
+
+## Migrations
+
+- **Numbered, and never edited once shipped.** A server that ran one never
+  runs it again: fix forward with a new one.
+- **Automigrate is off.** The collections are written in Go, never made in the
+  dashboard.
+- **A new field is optional.** An older app never sends it, and upserts update
+  only the fields they carry, so a field an older app does not know survives
+  its writes.
+- **The batch settings hold the largest push**: a whole local account uploaded
+  at sign-up. PocketBase's defaults (off, 50 requests, 3 seconds) do not. A
+  batch over the limit fails without naming a write, and the client cannot
+  act on that.
+
+## What must stay true for the client's reconciliation
+
+The client pushes, reads everything, and reconciles: a pending change is
+skipped, a deleted profile or connection is deleted, otherwise the server's
+version replaces its own — and a row it holds that the server lacks is taken
+for lost and uploaded again. That last rule is why most of this list exists.
+
+1. **Every user sees only their own records, and all of them.** A record
+   missing from a read is uploaded again, over whatever newer edit it had. A
+   record from another user is someone else's household.
+2. **Deletes are soft.** A removed record looks lost; a tombstone looks
+   deleted. Nothing but deleting a user removes a row — which is also what
+   keeps paged reads from skipping one.
+3. **A batch is all or nothing** — PocketBase's own transaction — and a
+   refusal names its write: `sc_limit`, `sc_deleted`, or anything else for
+   `invalid`. Never replace it with requests one by one: a failure half-way
+   would leave the client unable to say what was stored.
+4. **The server never resolves conflicts.** It stores what the rules allow and
+   returns it. No merge, no winner by `updated`, no refusing a write because
+   it looks older.
+5. **`info` answers without a session.** The app reads the limit and the
+   sign-up mode before anyone signs in.
+6. **A session that ended is a `401`.** The plugin signs in once on it, and
+   takes anything else at its word.
+7. **No per-account lockout.** Throttle by address, as PocketBase's limiter
+   does, in memory.
+
+## The tests to run
+
+```bash
+go test ./...
+(cd harness && npm install && npm test)
 ```
-client sends   [c1 c2 c3 c4 c5]
-server stores  [c1 c2 c3]  and fails on c4
-server returns accepted: [c1 c2 c3]
-client resends [c4 c5] next time
-```
 
-**Confirming a change you then lose means the client never sends it again.**
-That is permanent data loss, caused entirely by the server, and invisible until
-someone notices their history is wrong.
-
-Acknowledge after the write is durable, never before.
-
-A change `isSyncChange` refuses ends the prefix too. The client only builds
-changes it accepts, so a refusal means a broken client — which then stalls
-rather than loses anything.
-
-### 3. `pull` returns the caller's own changes
-
-The whole log, in one order, the caller's own changes included. A device waits
-to see each change it pushed come back: until then that change protects its
-entity from older ones still arriving. Leave a device's own changes out and it
-waits for ever.
-
-### 4. `pull` must be resumable
-
-Return an opaque cursor. The client stores it per connection and hands it back.
-It must stay valid across server restarts and deploys — it is persisted on a
-device you do not control.
-
-Do not encode anything the client could misuse, and do not assume the cursor you
-receive is recent.
-
-### 5. `reset` is not `expired`
-
-- `reset` — the account lost data, or the cursor belongs to a log that is gone.
-  Devices join again and upload what they hold.
-- `expired` — only the cursor was compacted away. Devices read from the start
-  and upload nothing extra.
-
-Answering `reset` for an expiry makes every device overwrite newer edits;
-answering `expired` after a loss leaves the account without what it lost.
-
-## What the server must never do
-
-**Resolve conflicts.** The client owns that: the log's order, and four rules
-of its own (`docs/protocol`). When watch progress travels it will resolve by
-furthest position, never by timestamp — a device that stops playback and
-reports position 0 a second later would otherwise erase real progress. A server
-that picks a winner, reorders or merges changes silently corrupts all of it.
-
-Store and return. Do not decide.
-
-**Store media.** This carries normalized user state. Never video, never
-thumbnails, never a stream.
-
-**Hold provider credentials.** It carries what the user watched, not their
-Jellyfin password. A connection arrives with the names of its saved passwords
-only. Phase 4 adds passwords sealed on the device, with a key derived from the
-account password — ciphertext to store, never to open.
-
-**Assume one device.** Several devices sync against the same account
-concurrently, and their pushes interleave.
-
-## Shared wire types
-
-Depend on `@sc/api` from the plugins repository for the change and cursor types,
-so client and server cannot drift apart on what a change looks like. Never
-depend on the app.
-
-## How this server keeps them
-
-- **Idempotent:** `UNIQUE (account_id, change_id)` on the log; a push checks
-  each id before inserting, inside one `BEGIN IMMEDIATE` transaction.
-- **The prefix:** `pushChanges` stops at the first change `isSyncChange`
-  refuses and commits what came before; a storage error rolls the whole push
-  back and answers 503. `synchronous = FULL` puts the commit on disk before the
-  answer.
-- **Verbatim:** a change is stored as sent and spliced back into the page — a
-  field this server does not know still reaches the devices that do.
-- **Cursors** carry the account's epoch, a position and the change id there:
-  another epoch, a position past the end, or another change at it answers
-  `reset`. `sc-sync restore` renews every epoch.
-- **`expired`** is never answered: nothing is compacted yet.
-
-`test/store.test.ts` and `test/crash.test.ts` prove each of these; run them
-after any change to `src/store/changes.ts`.
+Run both after any change to a collection, rule, hook, route or migration. A
+change to the record contract starts in the plugins repository —
+`api/src/account.ts` and `api/fixtures/account-records.json` — and runs that
+repository's `npm test` too.
 
 ## Current state
 
-Built and tested — `docs/README.md` has the decisions and why — and the real
-`custom-server` plugin runs against it in `test/plugin.test.ts`. A change to
-the protocol is a change to that plugin too: run both suites.
+Phase 5 — the new architecture, written down. Until Phase 6 builds it, this
+repository holds Phase 4's TypeScript server, which speaks the log protocol
+this skill no longer describes. None of the above exists yet: not the
+collections, the hooks, the routes or the tests.

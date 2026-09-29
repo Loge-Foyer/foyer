@@ -1,137 +1,226 @@
 # Deployment
 
-Running the server for real: where it keeps its data, how it is reached, and
-how it is backed up. `getting-started` has the quick version.
+Running the server for real: how it runs, where it keeps its data, how it is
+reached, how it is backed up, and how accounts are looked after.
+`getting-started` has the quick version.
+
+> **Until Phase 6** this repository holds Phase 4's TypeScript server, on port
+> 8730, and nothing below applies to it. Its own instructions are in git:
+> `git show f98384f:docs/deployment/README.md`.
+
+The binary's name, `streaming-center-sync`, and the image's paths are Phase
+6's to confirm.
+
+## The binary
+
+```bash
+CGO_ENABLED=0 go build -o streaming-center-sync .
+./streaming-center-sync serve --http=0.0.0.0:8090 --dir=/var/lib/streaming-center-sync
+```
+
+One file, with nothing to install beside it. `GOOS` and `GOARCH` build it for
+another machine. Run it under whatever keeps your services up — systemd,
+launchd — and stop it with `SIGTERM`.
 
 ## With Docker
 
-The image is built from this repository with `@sc/api` from the plugins
-repository, which must sit beside it — `docker-compose.yml` passes it as a
-second build context.
-
 ```bash
-cp .env.example .env            # optional
+cp .env.example .env
 docker compose up -d
-docker compose exec sync sc-sync invite
+docker compose exec sync streaming-center-sync invite
 ```
 
-- The data lives in the `sync-data` volume, mounted at `/data`.
-- The container runs as `node`, listens on 8730, and reports its health from
-  `/v1/health`.
-- `sc-sync` is on the container's `PATH`: `docker compose exec sync sc-sync
-  accounts`, `devices`, `revoke`, `backup`.
+- The image is a two-stage Go build of this repository alone.
+- The data lives in the `pb_data` volume.
+- It listens on 8090, and reports its health from `/api/health`.
+- `docker compose exec sync streaming-center-sync …` runs any command —
+  `invite`, `superuser`, `migrate` — beside the running server.
 
 Without compose:
 
 ```bash
-docker build --build-context api=../streaming_center_plugins/api -t streaming-center-sync .
-docker run -d --name sync -p 8730:8730 -v sync-data:/data streaming-center-sync
+docker build -t streaming-center-sync .
+docker run -d --name sync -p 8090:8090 -v pb_data:/pb_data --env-file .env streaming-center-sync
 ```
-
-## Without Docker
-
-Node 24.7 or later:
-
-```bash
-cd ../streaming_center_plugins && npm install
-cd ../streaming_center_sync && npm install
-npm run build
-npm start                      # reads .env if there is one
-```
-
-`dist/main.mjs` and `dist/cli.mjs` are one file each, with everything inside:
-copying `dist/` is copying the server. Run it under whatever keeps your
-services up — systemd, launchd — and stop it with `SIGTERM`, which lets a push
-in flight finish.
 
 ## Settings
 
+`.env`, which the server reads when it starts; compose passes it to the
+container.
+
 | Variable | Default | |
 | --- | --- | --- |
-| `SC_SYNC_PORT` | `8730` | Where it listens. In the container it stays 8730: publish another port with `SC_SYNC_PUBLISH`. |
-| `SC_SYNC_HOST` | `0.0.0.0` | `127.0.0.1` to take requests only from this machine — a reverse proxy on it. |
-| `SC_SYNC_DATA` | `./data` (`/data` in the image) | The database and its lock file. |
-| `SC_SYNC_TRUST_PROXY` | off | `1` behind a reverse proxy. Throttling counts by the caller's address, which is then the hop the proxy appended to `X-Forwarded-For`. Never set it without a proxy: anyone could claim any address. |
-| `SC_SYNC_PUBLISH` | `8730` | compose only: the host port, or `127.0.0.1:8730` behind a proxy on the same machine. |
+| `SC_MAX_PROFILES` | `10` | Profiles an account may hold. The app reads it from the server. Lowering it removes nothing: an account over it keeps its profiles, and adds none. |
+| `SC_SIGNUP` | `invite` | `invite`, `open` or `closed` (`getting-started`). |
+| `SC_ADMIN_EMAIL`, `SC_ADMIN_PASSWORD` | — | The first superuser, made on the first start. Take the password out of `.env` once it exists; `superuser update` changes it later. |
+| `SC_TRUST_PROXY` | — | Behind a reverse proxy: the header it puts the caller's address in, such as `X-Forwarded-For`. Never without a proxy (below). |
+
+And PocketBase's own flags, after `serve`:
+
+| Flag | Default | |
+| --- | --- | --- |
+| `--http` | `127.0.0.1:8090` | Where it listens. `0.0.0.0:8090` takes requests from other machines; the image does. |
+| `--dir` | `pb_data`, beside the binary | The data. |
+| `--origins` | `*` | Which web origins may call it. If you narrow it, keep the web app's. |
+| a domain: `serve sync.example.com` | — | TLS of its own (below). |
+
+**The migrations write the rest into PocketBase's own settings** on the first
+start: the session length, the batch API and the rate limits. The dashboard
+shows them. Leave them as they are: they are set for what the app needs.
 
 ## Storage
 
-One SQLite file, `sync.db`, in the data directory, with its write-ahead log
-beside it while the server runs.
+Everything is in the data directory, `pb_data`: the database, PocketBase's
+logs, local backups, and certificates when it makes its own.
 
 - **Keep it on a local disk.** SQLite's locking is not safe over NFS or SMB,
   and a Docker volume on one is no better.
-- The server takes `server.lock` in the data directory while it runs, and
-  removes it when it stops.
+- **One server per data directory.** Commands such as `invite` can run beside
+  it; a second `serve` cannot.
+- **It is as sensitive as every password the household saved.** Keep it, and
+  anything copied from it, where only you can read it.
 
 ## TLS
 
-The server speaks plain HTTP; TLS comes from a reverse proxy in front of it.
+**Use TLS anywhere but a home network you trust.** On plain HTTP, anyone on
+the network reads the account password as a device signs in, and the session
+tokens that open the account. And because every sync reads the whole account,
+every source password crosses the network each time a device syncs.
 
-**Use TLS anywhere but a home network you trust.** The token a device holds
-reads the whole household's log — profiles, PINs, connections. And a device
-signing in sends a proof derived from the password, and receives the wrapped
-vault key: both are material for guessing the password offline, and with it
-every sealed password. On plain HTTP, anyone on the network can take them.
+### Behind a reverse proxy
 
-A Caddy example, with the server on the same machine:
+Self-hosters mostly run one already. With Caddy on the same machine:
 
 ```
 sync.example.com {
-	reverse_proxy 127.0.0.1:8730
+	@dashboard path /_/*
+	respond @dashboard 404
+	reverse_proxy 127.0.0.1:8090
 }
 ```
 
-and `SC_SYNC_HOST=127.0.0.1` (or `SC_SYNC_PUBLISH=127.0.0.1:8730` with
-compose) and `SC_SYNC_TRUST_PROXY=1`. A base path works too — the app keeps
-one typed into the address: `handle_path /sync/* { reverse_proxy 127.0.0.1:8730 }`,
-and the app uses `https://example.com/sync`.
+- Start the server with `--http=127.0.0.1:8090`, or publish it with compose on
+  `127.0.0.1:8090:8090`, so the proxy is the only way in.
+- Set `SC_TRUST_PROXY=X-Forwarded-For`.
+- The dashboard stays off the proxy. Reach it on the machine itself, or
+  through a tunnel: `ssh -L 8090:127.0.0.1:8090 you@server`, then
+  `http://localhost:8090/_/`.
 
-The app runs on the web from a secure page, so a browser can only reach an
-`https` server — or `http://localhost`.
+A base path works for the app too, since it keeps one typed into the address:
+`handle_path /sync/* { reverse_proxy 127.0.0.1:8090 }`, and the app uses
+`https://example.com/sync`.
+
+### Its own certificates
+
+```bash
+./streaming-center-sync serve sync.example.com
+```
+
+PocketBase gets a certificate from Let's Encrypt, keeps it in `pb_data`, and
+listens on 80 and 443. The name must point at this machine, both ports must be
+open to the internet — Let's Encrypt checks from outside — and the server
+needs the right to bind them: root, or `setcap cap_net_bind_service=+ep` on
+the binary. With Docker, publish 80 and 443 instead of 8090.
+
+The app runs on the web from a secure page, so a browser can reach only an
+`https` server — or one on `localhost`.
+
+## The trusted proxy
+
+The rate limiter counts per address, and the superusers' allowed addresses
+(below) go by address too. PocketBase takes the address from the connection,
+unless `SC_TRUST_PROXY` names a header to take it from.
+
+- **Behind a proxy, set it.** Otherwise every caller has the proxy's address:
+  one stranger's tries throttle the whole household, and an address allowed
+  for superusers lets anyone in through the proxy.
+- **Without a proxy, never.** Anyone could send the header, and claim any
+  address.
+
+With `X-Forwarded-For`, PocketBase takes the last address in it: the one your
+proxy added.
+
+## Keep the dashboard private
+
+`/_/` and a superuser login read everything: every account, every PIN, and
+every source password, in plain text.
+
+- **Keep it off the proxy**, as above.
+- **Allow superusers only from your own network:** in the dashboard's
+  settings, or with `streaming-center-sync superuser ips 192.168.1.0/24` —
+  whether the command needs the server stopped is Phase 6's to verify. Behind
+  a proxy, this works only with `SC_TRUST_PROXY`.
+- **A long superuser password**, and none left in `.env`.
+- **Never change the app's collections, rules or settings there.** The
+  migrations own them, and a rule loosened by hand opens one household's data
+  to another.
 
 ## Backups
 
-```bash
-sc-sync backup /data/backup-$(date +%F).db     # while the server runs
-```
+PocketBase makes them, under Settings → Backups in the dashboard.
 
-A consistent copy, taken through SQLite while the server keeps serving. Keep a
-few, somewhere else.
+- **A backup is a ZIP of `pb_data`**, taken while the server runs, on demand
+  or on a schedule that keeps the last few.
+- **It goes to `pb_data/backups`, or to S3.** A copy on the same disk does not
+  survive the disk: keep one somewhere else. S3's keys sit in PocketBase's
+  settings; `--encryptionEnv` keeps those settings encrypted.
+- **It holds every password** the households saved, in plain text. Keep it
+  like a password file: encrypted, and nowhere shared.
+- **Restoring** from the dashboard replaces `pb_data` and restarts the server.
+  By hand: stop it, put the backup's contents in place of `pb_data`, start it.
 
-**Restore only with `sc-sync restore`**, with the server stopped:
+### What a restore means for devices
 
-```bash
-docker compose stop sync
-docker compose run --rm sync sc-sync restore /data/backup-2026-09-01.db
-docker compose start sync
-```
+Nothing tells the devices, and nothing needs to: each finds out on its next
+sync.
 
-It writes the copy through SQLite — a file copied back beside a stale
-write-ahead log would replay old pages over it — and gives every account a new
-epoch. Every device then hears `reset` and joins again with what it holds, so
-whatever changed after the backup comes back from the devices themselves.
+- **Records made since the backup come back** from the devices that hold
+  them. A device takes a record it holds, and the server lacks, for one the
+  server lost, and uploads it again.
+- **Edits made since the backup are undone.** The server's older version
+  replaces them on every device, unless a device still has one waiting to be
+  sent.
+- **What was deleted since can come back.**
+- **Passwords changed since are the old ones again** — the account's, and
+  sources' — and the devices ask.
+- **An account made since is gone.** Its devices ask to sign in. Signing out
+  keeps their copy as a local account, and a new account, with a new invite,
+  uploads it.
 
-It refuses while a server holds the data. A lock from another container
-cannot be asked whether its server lives: if that server crashed rather than
-stopped, remove `server.lock` from the data directory yourself.
+So restore when the data is lost, not to undo a mistake.
 
 ## Updating
 
-**Update the server before the apps.** The server checks every push with the
-same rules as the app it was built with; a newer app's change it does not know
-yet ends that device's accepted prefix, and the device waits until the server
-knows it.
+**Update the server before the apps.** Its collections and hooks judge records
+by the contract they were written against. A newer app can send something an
+older server refuses, and that write is refused until the server knows it.
+Update the server first, and every app it serves can store what it sends.
 
-## Accounts and devices
+**Back up first.** A new release may bring migrations. They run at its first
+start, and going back to the old binary does not undo them.
 
-- `sc-sync accounts`, `sc-sync devices <username>` — who is there.
-- `sc-sync revoke <device-id>` — a lost phone. The device stops syncing and
-  asks for the password again; it never signs itself back in.
-- `sc-sync delete-account <username> --yes` — for good, with its devices and
-  its log.
+PocketBase is inside the binary, pinned: updating this server is how
+PocketBase is updated, never on its own.
 
-A forgotten account password cannot be recovered: nothing can open the vault
-key without it. The devices keep everything they hold. Delete the account,
-make a new one with a new invite, and sign the devices in to it: they bring
-what they hold, and each asks once for its connections' passwords.
+## Accounts
+
+The dashboard's `users` collection is every account on the server. The
+profiles, PINs, preferences, connections and per-profile values of each are in
+their collections, under the account's `user`.
+
+- **A forgotten password.** Open the user, and set a new password. Every
+  session ends; each device's saved password is refused once, and then it asks
+  — type the new one.
+- **A lost device.** Change the password, the same way. The lost device is
+  refused once and never tries again; the others ask for the new one.
+- **Deleting an account.** Delete the user, and everything of it goes with it.
+  Its devices ask to sign in; signing out keeps their copy as a local account.
+- **Leave the records alone.** Deleting one is refused: a record removed by
+  hand would read as lost, and come back from the devices. An edit is a write
+  like any device's: every device takes it on its next sync, unless it has a
+  change of its own waiting.
+- **Invites** are in `invites`: when each expires, and who used it. Make them
+  with `invite`.
+- **An account made in the dashboard starts with no profiles.** Signing up
+  from the app is the usual way: it brings a first profile, or a whole local
+  account.

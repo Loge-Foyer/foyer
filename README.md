@@ -1,77 +1,88 @@
-# Streaming Center — sync server
+# Streaming Center — your own server
 
-A small server you run yourself, so your viewing history follows you between
+A small server you run yourself, so your household's account — its profiles,
+their settings, and your sources with their passwords — follows you between
 your own devices.
 
-It is built: `docker compose up -d`, or `npm install && npm run build && npm
-start`, then an invite from `sc-sync invite`. `docs/getting-started` has the
-rest.
+It is [PocketBase](https://pocketbase.io), with the app's collections added:
+one program, one database, and a dashboard to see what it holds.
+
+> Phase 5 has just written this design down. Until Phase 6 builds it, this
+> repository still holds the earlier server — see *Current state*.
 
 ---
 
 ## The problem it solves
 
-You watch half a film on your phone. You sit down at the TV. It should already
-know where you got to.
+You add your Jellyfin server on your phone. You pick up the tablet. It should
+already have it — the address, the sign-in, your profile's home screen —
+without you typing a password again.
 
-Making that work means your state has to live somewhere both devices can
-reach. For films on a media server that part is already solved: Jellyfin keeps
-its own record of what you watched, and the app reads it from there and writes
-it back there.
+Everything you set up in the app lives in your **account**: your profiles,
+their PINs and preferences, and the sources and IPTV subscriptions you added.
+A device holds one account, and it lives in one of two places:
 
-Everything else — your profiles, their preferences and home screens, progress
-in files and web video that no server tracks — lives with your **account**. A
-device has at most one, and there are three ways to have it:
+- **On the device.** Nothing to run. To move it, export a backup file, or let
+  the app keep one in iCloud, Google Drive or OneDrive.
+- **On your own server** — this. Every device signed in to it stays in step.
 
-- **None.** State stays on each device. Simple, and genuinely fine if you only
-  use one.
-- **iCloud or Google.** Convenient if you are already in one of those
-  ecosystems, and nothing to run.
-- **This.** A small server of your own.
+What you watched on a media server is already taken care of: Jellyfin keeps
+its own record, and the app reads it from there and writes it back there. That
+never goes through this server.
 
 ## Why you might want this one
 
-Because the self-hosting audience often does not want a cloud account.
+Because a lot of people who run their own media server do not want a cloud
+account.
 
-Your own server can hold everything the account carries — profiles,
-preferences, favourites, lists, home layout, progress in files and web video.
-Its password is also what resets a profile's forgotten PIN.
+- **It is live.** A backup file moves an account; this keeps several devices
+  on one.
+- **It is shared.** Everyone in the household signs in to the same account and
+  picks their own profile. Friends or family can have accounts of their own on
+  the same server.
+- **It is yours.** It runs where you run it, and its dashboard shows
+  everything it holds.
+- **Its password resets a forgotten PIN.**
 
-And it keeps the two concerns genuinely separate. Your films come from wherever
-you keep films. Your viewing state goes wherever you want it. Changing one
-should not force the other.
+And it keeps two concerns separate. Your films come from wherever you keep
+films. Your account goes wherever you want it. Changing one should not force
+the other.
 
 ## What it will and will not do
 
-**Will:** accept changes from your devices, hand them back to your other
-devices, and survive a client crashing partway through without losing or
-duplicating anything.
+**Will:** keep each account's profiles, PINs, preferences, sources and IPTV
+subscriptions, with their passwords; hand them to every device signed in to
+it; keep what one device deleted deleted on the others; hold an account to its
+profile limit — ten, unless you say otherwise; and let people in only with an
+invite you made, unless you open it.
 
-**Will not:** store or stream video, decide which version of your watch progress
-is correct when two devices disagree, or read your media server passwords — it
-carries them sealed on your devices, and cannot open them. Those all belong
-elsewhere on purpose.
+**Will not:** store or stream video; decide which version wins when two
+devices edit the same thing — the app does that, and the last change sent
+wins; or keep your source passwords from whoever runs it.
+
+That last one deserves plain words. **Your sources' passwords are stored as you
+typed them.** Whoever has the server's data folder, a backup of it, or its
+dashboard login can read every one. That is the price of keeping the server
+simple, for now. So run it yourself, put it behind TLS if it leaves your home
+network, keep the dashboard to yourself, and treat its backups like a list of
+passwords.
+
+Your account password is different: the server keeps only a hash of it. PINs
+are readable too — a PIN is a child lock, not a password.
 
 ## Current state
 
-The server runs. It keeps one log per account in a single SQLite file, stores
-every change once however often a device sends it, answers only for what is on
-disk, and survives being killed half-way through a push without losing or
-duplicating anything — its tests kill it there to make sure.
-
-Accounts are created from the app with a one-time invite, so whoever runs the
-server never learns the password. The server never sees the key your
-connections' passwords are sealed with, either: it stores what it cannot open.
-
-The plugin that talks to it — "Your own server" in the app — is built and
-tested against it; creating an account from the app's screens comes next.
-Docker and compose files are written; `docs/deployment` has running it for
-real.
+**Phase 5 — the new architecture, written down.** Everything above is the
+design this repository is moving to. Until Phase 6 replaces it, this
+repository still holds the TypeScript server from Phase 4 — Node 24, Hono, one
+SQLite file, one log per account, `sc-sync`, port 8730. `npm start` runs that
+one, and today's app speaks its protocol, with connections' passwords sealed
+on the devices. The PocketBase server described here does not exist yet.
 
 ## Documentation
 
-`docs/` covers getting started, the sync protocol, every route, deployment
-and development.
+`docs/` covers getting started, the account protocol, the routes and
+collections, deployment and development.
 
 The full architecture is in
 [`../.claude/streaming-center-architecture.md`](../.claude/streaming-center-architecture.md).

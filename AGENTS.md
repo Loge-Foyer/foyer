@@ -1,131 +1,157 @@
 # AGENTS.md — streaming_center_sync
 
-The self-hosted sync server. Read the workspace root `AGENTS.md` and
-`../.claude/streaming-center-architecture.md` first.
+Your own server: PocketBase, used as a Go framework. Read the workspace root
+`AGENTS.md` and `../.claude/streaming-center-architecture.md` first — §7 (the
+account role), §9 (syncing with your own server), §10 (conflicts) and §17
+(your own server).
 
-The server is built: TypeScript on Node 24, Hono, one SQLite file.
-`docs/protocol` is what the client speaks; `docs/api` is every route.
+`docs/protocol` is what the client speaks; `docs/api` is every route,
+collection and rule.
 
 ---
 
 ## What this is
 
-A small server someone can run themselves as their **account** — the one sync
-connection a device can have — so their profiles, preferences and state follow
-them between devices without going through Apple or Google.
+A small server a household runs itself as its **account**: its profiles, their
+PINs and preferences, and its source and IPTV connections with their
+passwords, kept in step between its devices. Several accounts can share one
+server, each with up to `SC_MAX_PROFILES` profiles.
 
-It is the counterpart to the `custom-server` sync plugin in
-`streaming_center_plugins`. The plugin is the client; this is the server it
-talks to.
+It is the other end of the `sync/custom-server` plugin in
+`streaming_center_plugins`. The plugin is the client; this is PocketBase, with
+the app's collections, rules and hooks.
 
 ## What this is not
 
-- **Not a media server.** It never stores or streams video. It carries the app's
-  own normalized user state and nothing else.
-- **Not required.** A device has at most one account, and none at all is fine:
-  state then stays on the device. iCloud and Google are the other accounts.
-  This exists for people who want neither.
-- **Not where Jellyfin's watch status goes.** A media server masters its own
-  watch status; the app caches it and writes it back through that plugin's
-  media role (`streaming_center_plugins/plugins/jellyfin`). This server carries
-  what no media source masters: profiles, preferences, lists, and progress in
-  files and web video.
+- **Not a media server.** It never stores or streams video, or artwork.
+- **Not required.** A device's account can be local. iCloud, Google Drive and
+  OneDrive keep a backup file, not an account.
+- **Not where Jellyfin's watch status goes.** A media server masters its own;
+  the app reads it and writes it back through that source's media role.
+- **Not a place for what belongs to a device.** Players, sync settings — this
+  server's own sign-in among them — the default profile, sessions and caches
+  never reach it. `plugin_id` takes `sources/*` and `iptv/*` only.
 
 ## Boundaries
 
-Depends on `@sc/api` for wire types, so client and server cannot drift
-apart on what a change looks like. Depends on nothing else from the project —
-**never** on the app.
+- **PocketBase and Go. Nothing from TypeScript.** Go cannot import `@sc/api`,
+  and nothing the server ships touches it.
+- **`api` states the contract.** `api/src/account.ts` is the record contract,
+  and `api/fixtures/account-records.json` holds both sides to it: the api's
+  tests and the Go tests read the same file. Change them together — the
+  contract in the plugins repository first, then the collections and hooks
+  here.
+- **One exception, test-only:** `harness/` (Node, vitest) builds the binary and
+  drives the real `sync/custom-server` plugin, aliased to its source, against
+  it. `harness/AGENTS.md` (Phase 6) states the exception. Nothing else here is
+  TypeScript, and nothing in `harness/` ships.
+- **Never the app.**
 
-One exception, for tests alone: `test/plugin.test.ts` drives the real
-`custom-server` plugin, aliased to its source like `@sc/api`. Nothing in `src/`
-may import a plugin — a test checks — and none reaches the bundle.
+## What the server promises
 
-## The protocol it must implement
+The client's reconciliation (`docs/protocol`) rests on these:
 
-Defined by `ConnectedUserStateSyncProvider` in `api`: `pull`, `push`,
-`getStatus`, and `verifyOwner` for Forgot PIN. `docs/protocol` has all of it;
-these properties are load-bearing and easy to get wrong:
-
-1. **`push` is idempotent by change id, for ever.** A client resends a change
-   after a lost answer, possibly days later. Stored twice, the copy lands after
-   newer changes from other devices and undoes them. Remember every id stored,
-   even after compacting the data.
-
-2. **`accepted` is a prefix of the ids sent, each durably stored.** The client
-   advances its checkpoint only across it and resends the rest verbatim.
-   Confirming a change you did not store loses it silently.
-
-3. **`pull` returns the caller's own changes.** The client waits to see each
-   change it pushed come back before letting older changes to that entity
-   through. Filter them out and that device waits for ever.
-
-4. **`pull` resumes from an opaque cursor** that stays valid across restarts
-   and deploys.
-
-5. **`reset` and `expired` mean different things.** `reset`: the account lost
-   data, and devices upload what they hold again. `expired`: only the cursor
-   is gone, and devices read from the start without uploading. Mixing them up
-   either overwrites newer edits or leaves data lost.
-
-6. **Check pushes with `isSyncChange`.** A change it refuses ends the accepted
-   prefix, like one that failed to store.
+1. **Every user sees all of its own records, and nobody else's.** The rules
+   are `user = @request.auth.id`; a write names its own user, and an update
+   never moves a record to another.
+2. **A guest sees nothing.** Without a valid session, account data answers
+   `401` — never an empty list, which would read as a server that lost
+   everything.
+3. **Deletes are soft**, the tombstone cleared of its payload, secrets
+   included — and final for profiles and connections.
+4. **The profile limit:** no new live profile beyond `SC_MAX_PROFILES`.
+5. **No hard deletes of account data**, but the cascade when a user is deleted.
+6. **A batch is all or nothing**, and a refusal names the write that stopped
+   it.
+7. **A listed secret a write lacks keeps its stored value.**
+8. **A password change ends every session.**
+9. **`info` answers without a session.**
 
 ## What it must never do
 
-- **Resolve conflicts.** The client owns that, by the log's order and four
-  rules of its own. The server stores and returns, in one order for every
-  device; it does not decide which version wins.
-- **Hold secrets it does not need.** It carries user state, not provider
-  credentials: a connection's passwords arrive sealed on the device, as
-  ciphertext the server stores verbatim and cannot open. Nothing here may ever
-  ask for the account password itself.
-- **Assume one device or one client.** Several devices sync against the same
-  account concurrently.
+- **Resolve conflicts.** The client owns that: a pending change first, deletes
+  of profiles and connections always, otherwise the last push, whole. The
+  server stores what the rules allow and returns it. It never merges two
+  writes, and never picks a winner by `updated` or anything else.
+- **Accept account data outside the owner's rules** — for another user, from a
+  guest, or for a device-wide plugin.
+- **Lock an account from everywhere.** PocketBase's limiter counts per address,
+  in memory. Never add a count per username: anyone who knows one could keep
+  its owner out.
+- **Store media.**
 
 ## Skills
 
 `.agents/skills/` in this repository:
 
-- **`sc-sync-protocol`** — implementing the protocol correctly: idempotent push
-  by change id, accepted-prefix confirmation, a device's own changes returned,
-  resumable cursors, `reset` versus `expired`, and what the server must never
-  do.
+- **`sc-sync-protocol`** — the account protocol on the server: the collections
+  and their rules, the hooks, the two routes, migrations, and what must stay
+  true for the client's reconciliation.
 
 ---
 
 ## Shape
 
 ```
-src/main.ts        the server: config, lock file, database, Hono, shutdown
-src/cli.ts         sc-sync: invite, accounts, devices, revoke, delete-account, backup, restore
-src/app.ts         every route
-src/store/         the database: migrations, accounts, devices, invites, the log
-src/auth/          proofs, tokens, invites, the throttle
-test/              vitest: the store, auth, HTTP, a crash test, the command line, the real plugin
-Dockerfile         two stages; @sc/api comes in as the `api` build context
+main.go              pocketbase.New(); migratecmd, automigrate off; the hooks, the routes, the invite command
+go.mod               PocketBase pinned to v0.40.x, which needs Go 1.27
+internal/config/     SC_MAX_PROFILES, SC_SIGNUP, SC_ADMIN_*, SC_TRUST_PROXY
+internal/hooks/      no guests, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
+internal/routes/     GET /api/sc/info, POST /api/sc/sign-up
+migrations/          numbered: the collections and rules; users; batch, rate limits, proxy; the superuser
+harness/             Node + vitest, test-only: the real plugin against the real binary
+Dockerfile           two stages: a Go build, then the binary alone
+docker-compose.yml   the server, and pb_data in a volume
 ```
+
+Go tests sit beside what they test. Everything else is PocketBase's: `serve`,
+`superuser`, `migrate`, users and sessions, the record APIs, `/api/batch`, the
+dashboard at `/_/`, backups and the rate limiter.
+
+**Transitional:** until Phase 6 this repository holds Phase 4's TypeScript
+server — `src/`, `test/`, `scripts/build.mjs`, a Node Dockerfile — and
+`npm start` runs it. Everything here describes the Go layout that replaces it.
 
 ## Rules that break silently
 
-- **Never re-serialize a change.** Store it as sent and splice it back into the
-  page: a field this server does not know must still reach the devices that do.
-- **Check pushes with `@sc/api`'s `isSyncChange`**, size limit included — the
-  client refuses the same changes, so neither side stalls the other.
-- **A transaction around every push.** A storage error rolls it back and
-  answers 503: nothing accepted is ever lost, nothing half-stored is ever
-  confirmed.
-- **Never an account-wide lock.** Throttle per name and address, per device,
-  per address — never so that a stranger can keep the owner out.
-- **Restore only through SQLite's backup API**, and renew every epoch after:
-  devices must learn the log is not the one they knew.
-- **The crash points are test-only** (`SC_SYNC_TEST_HOOKS=1`).
-- **The lock names its host.** Process ids mean nothing across containers on
-  one volume: a lock from another host is never taken for a dead process.
+- **PocketBase takes a bad token for a guest.** A missing, expired or invalid
+  token is no error to it: the request goes on as a guest, and under the owner
+  rules a guest's list is empty. The no-guests hook turns that into `401`.
+  Without it, a device whose session ended mid-sync reads an empty account,
+  takes the server for restored, and uploads its own copy over newer edits.
+- **Migrations are numbered, and never edited once shipped.** A server that
+  ran one never runs it again: fix forward with a new one. Automigrate stays
+  off, and nobody changes the collections in the dashboard — a field added
+  there exists on one server only, and a rule loosened there opens the data.
+- **A new field is optional.** An older app never sends it; made required, it
+  refuses every write from one.
+- **The batch holds the largest push**, a whole local account uploaded at
+  sign-up. PocketBase's defaults are 50 requests in 3 seconds, and a batch
+  over them fails without naming a write, which the client cannot act on.
+- **The server clears a tombstone.** An upsert updates only the fields it
+  carries, so a `deleted: true` that left `secrets` behind would keep a
+  password in a record nobody reads.
+- **The first profile's id.** The sign-up route derives it as the plugin does.
+  Otherwise a device's first rename writes a second record under the same key,
+  and the unique `(user, key)` index refuses it.
+- **The hooks hold for superusers.** The dashboard is a client of the same
+  API: a record deleted there would read as lost and come back from the
+  devices.
+- **`SC_TRUST_PROXY` only behind a proxy.** Without one, anyone can claim any
+  address and slip the limiter. Behind one without it, every caller has the
+  proxy's address, and one stranger's tries throttle the whole household.
+- **Two kinds of user.** PocketBase's `users` are accounts; the app's users are
+  profiles. A record's `user` is its account, and its `profile` its profile.
+- **Nothing decides by `created` or `updated`.** If a collection has them, they
+  are for people reading the dashboard.
+- **PocketBase is pinned.** It is pre-1.0, and minor versions break its Go API.
+  Update deliberately, one version at a time, with the Go tests.
 
 ## Current state
 
-Built and tested: accounts from invites, devices and tokens, one log per
-account, throttling, the command line, and the real `custom-server` plugin
-against it. The Dockerfile and compose file are written and their steps run
-under Node; the image itself is first built wherever Docker is.
+**Phase 5 — the new architecture, written down.** Until Phase 6 replaces it,
+this repository still holds the TypeScript server from Phase 4: Node 24, Hono,
+one SQLite file, one log per account, `sc-sync`, port 8730. Its suites pass
+(`npm run typecheck && npm test`), today's `custom-server` plugin speaks its
+protocol, and nothing of the Go server exists yet. Phase 6 builds it and
+deletes the TypeScript.
