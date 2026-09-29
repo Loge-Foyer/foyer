@@ -6,7 +6,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AppError, connectionId, userId, type ConnectedUserStateSyncProvider, type SyncChange } from '@sc/api';
-import { plugin } from '@sc/plugin-custom-server';
+import { plugin } from '@sc/sync-custom-server';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { hostContext, inProcessHttp } from './support/host';
