@@ -1,11 +1,10 @@
-node_modules
-dist
-data
+pb_data
+harness
+streaming-center-sync
 .env
 .env.*
 !.env.example
 .git
 .agents
-test
 docs
 *.md

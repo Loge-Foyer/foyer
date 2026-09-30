@@ -4,8 +4,8 @@ The routes the `sync/custom-server` plugin calls, the collections behind them,
 and how they fail. Most are PocketBase's own, used as they are; two are this
 server's. `protocol/` says what the calls mean.
 
-> **Until Phase 6** this repository holds Phase 4's server, on port 8730, with
-> routes under `/v1`. What follows is the PocketBase server that replaces it.
+> The server is built; the app's plugin speaks to it once the account moves to
+> records, Phase 6's next step.
 
 - Bodies are JSON.
 - The session token goes in `Authorization`; PocketBase takes it with or
@@ -67,7 +67,7 @@ Every data collection has these, besides its own fields:
 
 | Field | |
 | --- | --- |
-| `id` | derived by the plugin from the account's id and `key` |
+| `id` | `recordId()` in the api: the first 15 hex digits of SHA-256 over the account's id, the kind and `key`, a line apart. A write under any other id is refused |
 | `user` | relation to `users`, required; cascades when the user is deleted |
 | `key` | the record's key, `recordKey()` in `api`; unique per `(user, key)` |
 | `deleted` | the soft delete |
@@ -76,15 +76,19 @@ Every data collection has these, besides its own fields:
 | --- | --- | --- |
 | `profiles` | `profile` | `name` |
 | `profile_pins` | `pin` | `profile`, `pin` — four digits, or empty |
-| `preferences` | `preference` | `profile`, `name`, `value` (JSON); unique per `(profile, name)` |
+| `preferences` | `preference` | `profile`, `name`, `value` (JSON) |
 | `connections` | `connection` | `plugin_id`, `label`, `enabled`, `per_profile`, `fields`, `settings`, `secret_keys`, `secrets` |
-| `connection_profile_values` | `profileValues` | `connection`, `profile`, `off`, `fields`, `settings`, `secret_keys`, `secrets`; unique per `(connection, profile)` |
+| `connection_profile_values` | `profileValues` | `connection`, `profile`, `off`, `fields`, `settings`, `secret_keys`, `secrets` |
 
 - **`plugin_id`** is `sources/<name>` or `iptv/<name>`, the name kebab-case.
   Players and sync plugins stay on each device.
 - **`per_profile`** is `none`, `credentials` or `all`.
 - **`profile` and `connection`** are relations to the parent record, so a
-  child cannot exist without it; that is why a batch sends parents first.
+  child cannot exist without it; that is why a batch sends parents first. A
+  child names its parents by their derived ids, from its own key.
+- **`(user, key)` is unique** in every collection. A preference's key holds
+  its profile and its name, and a profile's values' key its connection and
+  its profile, so that is one of each per profile too.
 - **JSON fields** hold the api's limits: a record at most `MAX_RECORD_LENGTH`
   of JSON, a secret at most 4 KiB.
 - **`secrets`** is plain text: the source and IPTV passwords, as typed.
@@ -127,9 +131,14 @@ closes that.
 - **Kept secrets.** On an update, a name in `secret_keys` without a value in
   `secrets` keeps its stored value; a name dropped from `secret_keys` drops
   its value.
-- **A password change ends every session.** The server refreshes the user's
-  token key when its password changes — with a hook, if PocketBase does not
-  already — and the Go tests prove it.
+- **Every write is judged** the way `isAccountRecord` judges a record: the
+  key's shape, the derived id, the parents the key names, and the data. A
+  batch's writes are judged as sent, before PocketBase casts anything — a
+  `"no"` sent for a boolean is refused, where PocketBase would read `false` —
+  and every write again as it is about to be stored, however it came.
+- **A password change ends every session.** PocketBase itself refreshes the
+  user's token key when the password changes, so every token issued before
+  stops working; the Go tests prove it.
 
 The hooks hold for superusers too: the dashboard goes through the same API.
 
@@ -146,10 +155,18 @@ The hooks hold for superusers too: the dashboard goes through the same API.
 **Inside a failed batch**, `data.requests.{index}.response` is the refused
 request's own error. The hooks name their reason as a field error's `code`:
 
-- `sc_limit` — the profile limit
-- `sc_deleted` — a deleted profile or connection
+- `sc_limit` — the profile limit, on `user`
+- `sc_deleted` — a deleted profile or connection, on `deleted`
+- `sc_invalid` — a record the api would refuse, on the field at fault
 
-Anything else a request is refused for is `invalid` to the plugin. A batch
+```json
+{ "status": 400, "message": "Batch transaction failed.", "data": { "requests": { "3": {
+  "code": "batch_request_failed", "message": "Batch request failed.",
+  "response": { "status": 400, "message": "…", "data": { "user": { "code": "sc_limit", "message": "…" } } }
+} } } }
+```
+
+Anything but `sc_limit` and `sc_deleted` is `invalid` to the plugin. A batch
 that fails without naming a request — its time up, too many requests, the
 batch API off — stored nothing and judged nothing, and the plugin reads it as
 `backoff`.
@@ -157,6 +174,6 @@ batch API off — stored nothing and judged nothing, and the plugin reads it as
 ## Rate limits
 
 PocketBase's rate limiter, switched on by the migrations, guards sign-in and
-sign-up. It counts per address, in memory, and never per account, so nobody
+sign-up; `docs/deployment` lists its rules. It counts per address, in memory, and never per account, so nobody
 who knows a username can keep its owner out. Behind a proxy it needs
 `SC_TRUST_PROXY` (`docs/deployment`).

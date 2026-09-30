@@ -2,8 +2,8 @@
 
 Your own server: the account a household runs itself, on PocketBase.
 
-Until Phase 6 builds it, this repository holds Phase 4's server; these pages
-describe the one that replaces it.
+These pages describe the server this repository holds. The app's plugin
+speaks to it once the account moves to records — Phase 6's next step.
 
 | Folder | What is there |
 | --- | --- |

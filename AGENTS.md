@@ -43,8 +43,9 @@ the app's collections, rules and hooks.
   here.
 - **One exception, test-only:** `harness/` (Node, vitest) builds the binary and
   drives the real `sync/custom-server` plugin, aliased to its source, against
-  it. `harness/AGENTS.md` (Phase 6) states the exception. Nothing else here is
-  TypeScript, and nothing in `harness/` ships.
+  it. `harness/AGENTS.md` states the exception. Nothing else here is
+  TypeScript, and nothing in `harness/` ships. It arrives with the plugin's
+  move to records.
 - **Never the app.**
 
 ## What the server promises
@@ -93,13 +94,17 @@ The client's reconciliation (`docs/protocol`) rests on these:
 ## Shape
 
 ```
-main.go              pocketbase.New(); migratecmd, automigrate off; the hooks, the routes, the invite command
-go.mod               PocketBase pinned to v0.40.x, which needs Go 1.27
-internal/config/     SC_MAX_PROFILES, SC_SIGNUP, SC_ADMIN_*, SC_TRUST_PROXY
-internal/hooks/      no guests, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
+main.go              .env, then pocketbase.New(); migratecmd, automigrate off; server.Bind; the invite command
+go.mod               PocketBase pinned to v0.40.4, which needs Go 1.27
+internal/config/     SC_MAX_PROFILES, SC_SIGNUP, SC_ADMIN_*, SC_TRUST_PROXY, and the .env reader
+internal/records/    the kinds and their collections, the derived id, Validate — isAccountRecord's judgement
+internal/hooks/      no guests, every write judged, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
 internal/routes/     GET /api/sc/info, POST /api/sc/sign-up
-migrations/          numbered: the collections and rules; users; batch, rate limits, proxy; the superuser
-harness/             Node + vitest, test-only: the real plugin against the real binary
+internal/invites/    codes, their hashes, and the invite command
+internal/server/     Bind: the hooks, the routes and the trusted proxy — and the HTTP tests
+internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
+migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser
+harness/             Node + vitest, test-only: the real plugin against the real binary (next step)
 Dockerfile           two stages: a Go build, then the binary alone
 docker-compose.yml   the server, and pb_data in a volume
 ```
@@ -108,9 +113,9 @@ Go tests sit beside what they test. Everything else is PocketBase's: `serve`,
 `superuser`, `migrate`, users and sessions, the record APIs, `/api/batch`, the
 dashboard at `/_/`, backups and the rate limiter.
 
-**Transitional:** until Phase 6 this repository holds Phase 4's TypeScript
-server — `src/`, `test/`, `scripts/build.mjs`, a Node Dockerfile — and
-`npm start` runs it. Everything here describes the Go layout that replaces it.
+**Transitional:** until the plugin moves to records, no device speaks to this
+server, and the Go tests are the whole proof; the harness comes with that
+move.
 
 ## Rules that break silently
 
@@ -149,9 +154,12 @@ server — `src/`, `test/`, `scripts/build.mjs`, a Node Dockerfile — and
 
 ## Current state
 
-**Phase 5 — the new architecture, written down.** Until Phase 6 replaces it,
-this repository still holds the TypeScript server from Phase 4: Node 24, Hono,
-one SQLite file, one log per account, `sc-sync`, port 8730. Its suites pass
-(`npm run typecheck && npm test`), today's `custom-server` plugin speaks its
-protocol, and nothing of the Go server exists yet. Phase 6 builds it and
-deletes the TypeScript.
+**Phase 6 — the server runs.** PocketBase v0.40.4, used as a Go framework:
+the account's collections and their rules, the hooks, `info` and `sign-up`,
+and the `invite` command. `go test ./...` proves it — the rules, sign-up and
+invites, the hooks, batches, sessions and the shared fixtures. The app's
+`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
+moves to records, the next step, so no device syncs with this server yet; the
+harness that drives the real plugin against it comes with that move. The
+Dockerfile and compose file are written, and not yet built: Docker was not
+there.

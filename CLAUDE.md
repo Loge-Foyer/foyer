@@ -63,12 +63,15 @@ record: several households share a server.
 
 ## Current state
 
-**Phase 5 — the new architecture, written down.** Until Phase 6 replaces it,
-this repository still holds the TypeScript server from Phase 4: Node 24, Hono,
-one SQLite file, one log per account, `sc-sync`, port 8730. `npm test` runs its
-suites, and today's `custom-server` plugin speaks its protocol. Phase 6 builds
-the PocketBase server described here — the Go tests, then the harness — and
-deletes the TypeScript.
+**Phase 6 — the server runs.** PocketBase v0.40.4, used as a Go framework:
+the account's collections and their rules, the hooks, `info` and `sign-up`,
+and the `invite` command. `go test ./...` proves it — the rules, sign-up and
+invites, the hooks, batches, sessions and the shared fixtures. The app's
+`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
+moves to records, the next step, so no device syncs with this server yet; the
+harness that drives the real plugin against it comes with that move. The
+Dockerfile and compose file are written, and not yet built: Docker was not
+there. The Phase 4 TypeScript server is gone; git keeps it.
 
 ## Git
 

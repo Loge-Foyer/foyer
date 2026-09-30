@@ -7,8 +7,8 @@ your own devices.
 It is [PocketBase](https://pocketbase.io), with the app's collections added:
 one program, one database, and a dashboard to see what it holds.
 
-> Phase 5 has just written this design down. Until Phase 6 builds it, this
-> repository still holds the earlier server — see *Current state*.
+> The server is built; the app speaks to it once its account moves to records,
+> the next step — see *Current state*.
 
 ---
 
@@ -72,12 +72,15 @@ are readable too — a PIN is a child lock, not a password.
 
 ## Current state
 
-**Phase 5 — the new architecture, written down.** Everything above is the
-design this repository is moving to. Until Phase 6 replaces it, this
-repository still holds the TypeScript server from Phase 4 — Node 24, Hono, one
-SQLite file, one log per account, `sc-sync`, port 8730. `npm start` runs that
-one, and today's app speaks its protocol, with connections' passwords sealed
-on the devices. The PocketBase server described here does not exist yet.
+**Phase 6 — the server runs.** PocketBase v0.40.4, used as a Go framework:
+the account's collections and their rules, the hooks, `info` and `sign-up`,
+and the `invite` command. `go test ./...` proves it — the rules, sign-up and
+invites, the hooks, batches, sessions and the shared fixtures. The app's
+`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
+moves to records, the next step, so no device syncs with this server yet; the
+harness that drives the real plugin against it comes with that move. The
+Dockerfile and compose file are written, and not yet built: Docker was not
+there.
 
 ## Documentation
 

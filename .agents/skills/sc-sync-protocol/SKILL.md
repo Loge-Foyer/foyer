@@ -64,9 +64,12 @@ Traps in PocketBase's own field rules:
   Deleting a user cascades.
 - **Kept secrets**: a name in `secret_keys` that a write gives no value for
   keeps its stored value; a name dropped from the list drops its value.
-- **A password change ends every session.** The server refreshes the user's
-  token key when the password changes — with a hook, if PocketBase does not
-  already. The Go tests prove it.
+- **Every write is judged** as `isAccountRecord` judges a record — a batch's
+  writes as sent, and every write as it is about to be stored — by
+  `records.Validate`. A refusal is `sc_invalid`.
+- **A password change ends every session.** PocketBase refreshes the user's
+  token key itself when the password changes; the Go tests prove it. Never add
+  a hook that saves a user without letting that happen.
 
 They hold for superusers too: the dashboard goes through the same API.
 
@@ -125,7 +128,8 @@ for lost and uploaded again. That last rule is why most of this list exists.
 
 ```bash
 go test ./...
-(cd harness && npm install && npm test)
+go vet ./... && gofmt -l .
+(cd harness && npm install && npm test)   # from the plugin's move to records
 ```
 
 Run both after any change to a collection, rule, hook, route or migration. A
@@ -135,7 +139,8 @@ repository's `npm test` too.
 
 ## Current state
 
-Phase 5 — the new architecture, written down. Until Phase 6 builds it, this
-repository holds Phase 4's TypeScript server, which speaks the log protocol
-this skill no longer describes. None of the above exists yet: not the
-collections, the hooks, the routes or the tests.
+Phase 6 — the server runs, on PocketBase v0.40.4: the collections and rules,
+the hooks, the routes, the invite command, and `go test ./...` over all of
+them and the shared fixtures. No device speaks to it until the
+`sync/custom-server` plugin moves to records, the next step; the harness
+comes with that move.

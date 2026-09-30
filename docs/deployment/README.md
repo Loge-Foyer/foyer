@@ -4,12 +4,10 @@ Running the server for real: how it runs, where it keeps its data, how it is
 reached, how it is backed up, and how accounts are looked after.
 `getting-started` has the quick version.
 
-> **Until Phase 6** this repository holds Phase 4's TypeScript server, on port
-> 8730, and nothing below applies to it. Its own instructions are in git:
-> `git show f98384f:docs/deployment/README.md`.
-
-The binary's name, `streaming-center-sync`, and the image's paths are Phase
-6's to confirm.
+The binary is `streaming-center-sync`. In the image it is on the `PATH`, the
+data is `/pb_data`, and it listens on 8090. The Dockerfile and compose file
+are written and not yet built — Docker was not there when they were — so try
+them before you rely on them.
 
 ## The binary
 
@@ -60,13 +58,33 @@ And PocketBase's own flags, after `serve`:
 | Flag | Default | |
 | --- | --- | --- |
 | `--http` | `127.0.0.1:8090` | Where it listens. `0.0.0.0:8090` takes requests from other machines; the image does. |
-| `--dir` | `pb_data`, beside the binary | The data. |
+| `--dir` | `pb_data`, beside the binary — or in the working directory, when the binary is called by its name | The data. |
 | `--origins` | `*` | Which web origins may call it. If you narrow it, keep the web app's. |
 | a domain: `serve sync.example.com` | — | TLS of its own (below). |
 
 **The migrations write the rest into PocketBase's own settings** on the first
 start: the session length, the batch API and the rate limits. The dashboard
 shows them. Leave them as they are: they are set for what the app needs.
+
+- **Sessions** last 30 days, and every sync refreshes them.
+- **The batch API** takes up to 1,000 writes, 32 MiB and 30 seconds: room for
+  a whole local account uploaded at sign-up.
+- **The rate limits**, per address:
+
+  | What | At most |
+  | --- | --- |
+  | signing in, and the owner check | 5 a minute |
+  | signing up | 5 a minute |
+  | refreshing a session | 60 a minute |
+  | batches | 30 a minute |
+  | the writes inside batches | 5,000 a minute |
+  | anything else | 300 in 10 seconds |
+
+  A batch's writes each pass the limiter. Without rules of their own they fall
+  to the last one, and a large upload would fail half-way.
+
+`SC_TRUST_PROXY` is not a setting the migrations write: the server applies it
+on every start, so `.env` stays the one place it is set.
 
 ## Storage
 
@@ -147,9 +165,10 @@ every source password, in plain text.
 
 - **Keep it off the proxy**, as above.
 - **Allow superusers only from your own network:** in the dashboard's
-  settings, or with `streaming-center-sync superuser ips 192.168.1.0/24` —
-  whether the command needs the server stopped is Phase 6's to verify. Behind
-  a proxy, this works only with `SC_TRUST_PROXY`.
+  settings, or with `streaming-center-sync superuser ips 192.168.1.0/24`. The
+  command writes the settings to the database, and a running server keeps its
+  own copy: restart it afterwards. Behind a proxy, this works only with
+  `SC_TRUST_PROXY`.
 - **A long superuser password**, and none left in `.env`.
 - **Never change the app's collections, rules or settings there.** The
   migrations own them, and a rule loosened by hand opens one household's data

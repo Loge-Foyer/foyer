@@ -12,9 +12,8 @@ Everything below is what the client relies on. How each call reaches the
 server is at the end; `docs/api` has the routes, the collections and their
 rules.
 
-> **Until Phase 6** this repository holds Phase 4's server, and today's plugin
-> speaks Phase 4's protocol to it. This page describes the protocol that
-> replaces both.
+> The server speaks this protocol. The app's plugin still speaks Phase 4's
+> until the account moves to records, Phase 6's next step.
 
 ## An account is its records
 
@@ -74,7 +73,9 @@ A record is a PocketBase record in its kind's collection:
 - a child's parents, as relations — `profile`, `connection` — so a batch sends
   parents first
 
-**Record ids are derived by the plugin** from the account's id and the key. A
+**Record ids are derived by the plugin** from the account's id, the kind and
+the key: `recordId()` in the api, the first 15 hex digits of SHA-256 over the
+three, a line apart. A
 resent write lands on the same record, and two accounts on one server never
 collide. The server never picks the id of a record a device writes; the first
 profile the sign-up route creates gets the id the plugin would derive for it.
@@ -237,9 +238,8 @@ position — never a timestamp on the server.
 - **`signOut()`** forgets the session. PocketBase keeps no sessions, so there
   is nothing to end on the server.
 - **Cutting off a lost device** is changing the account password, in the
-  dashboard. The server refreshes the account's token key when its password
-  changes — with a hook, if PocketBase does not already — so every session
-  ends; the Go tests prove it. Each device's saved password is refused once,
+  dashboard. PocketBase refreshes the account's token key when its password
+  changes, so every session ends; the Go tests prove it. Each device's saved password is refused once,
   and then it asks.
 
 ## Errors

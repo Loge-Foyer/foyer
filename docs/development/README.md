@@ -1,17 +1,12 @@
 # Development
 
-> **Until Phase 6** this repository holds Phase 4's TypeScript server:
-> `npm install`, `npm test` and `npm start` run it, and nothing below exists
-> yet. Its instructions are in git:
-> `git show f98384f:docs/development/README.md`.
-
 ```bash
 go run . serve                    # the server, on 127.0.0.1:8090; data in ./pb_data
 go run . invite                   # a one-time code for "Create an account"
 go run . superuser upsert you@example.com 'a long password'
 go test ./...                     # every Go test
 go vet ./... && gofmt -l .        # nothing to report
-(cd harness && npm install && npm test)   # the real plugin against the real binary
+(cd harness && npm install && npm test)   # the real plugin against the real binary — from the next step
 go build -o streaming-center-sync .       # one static binary
 ```
 
@@ -62,7 +57,8 @@ data directory, with the migrations applied:
 - **Sessions:** 30 days; a password change ends every one.
 - **Records:** the shared fixtures, accepted and refused as in TypeScript.
 
-**The harness**, `harness/`, is Node and vitest, and test-only. It builds the
+**The harness** comes with the plugin's move to records. `harness/` is Node
+and vitest, and test-only. It builds the
 binary, starts it on a temporary directory, and drives the real
 `sync/custom-server` plugin — aliased to its source in
 `../streaming_center_plugins`, never installed — over a Node host with an

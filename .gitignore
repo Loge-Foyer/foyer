@@ -1,6 +1,6 @@
-node_modules/
-dist/
-*.tsbuildinfo
+pb_data/
+/streaming-center-sync
+harness/node_modules/
 .env
 .env.*
 !.env.example
@@ -8,4 +8,3 @@ dist/
 .idea/
 .vscode/*
 !.vscode/extensions.json
-data/

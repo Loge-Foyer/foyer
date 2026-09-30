@@ -5,9 +5,9 @@ their PINs and preferences, and the household's sources and IPTV
 subscriptions — with their passwords — kept in step between its devices. It is
 PocketBase, with the app's collections added.
 
-> **Until Phase 6** none of this exists yet. This repository holds Phase 4's
-> server, `npm start` runs it on port 8730, and its instructions are in git:
-> `git show f98384f:docs/getting-started/README.md`.
+> The server runs, and the app speaks to it once its account moves to records
+> — Phase 6's next step. Until then, the app's "Your own server" still speaks
+> the retired Phase 4 protocol.
 
 ## Run it
 
@@ -50,7 +50,7 @@ Accounts are created from the app, with an invite:
 
 ```bash
 go run . invite                  # a one-time code, good for seven days
-go run . invite --expires 1d
+go run . invite --days 1         # good for one
 ```
 
 In the app: **Sign in to your server → Create an account** — from Welcome on a
