@@ -6,7 +6,7 @@ go run . invite                   # a one-time code for "Create an account"
 go run . superuser upsert you@example.com 'a long password'
 go test ./...                     # every Go test
 go vet ./... && gofmt -l .        # nothing to report
-(cd harness && npm install && npm test)   # the real plugin against the real binary — from the next step
+(cd harness && npm install && npm test)   # the real plugin against the real binary
 go build -o streaming-center-sync .       # one static binary
 ```
 
@@ -57,18 +57,27 @@ data directory, with the migrations applied:
 - **Sessions:** 30 days; a password change ends every one.
 - **Records:** the shared fixtures, accepted and refused as in TypeScript.
 
-**The harness** comes with the plugin's move to records. `harness/` is Node
-and vitest, and test-only. It builds the
-binary, starts it on a temporary directory, and drives the real
-`sync/custom-server` plugin — aliased to its source in
-`../streaming_center_plugins`, never installed — over a Node host with an
-in-memory keychain:
+**The harness** (`harness/`) is Node and vitest, and test-only. It builds the
+binary once, starts it for each test on a temporary directory and a free
+port — with the rate limits on, as in production — and drives the real
+`sync/custom-server` plugin, aliased to its source in
+`../streaming_center_plugins` and never installed, over a Node host: `fetch`,
+node:crypto, and a session store that outlives a provider. It counts the
+sign-ins each device makes:
 
-- sign up, and a second device signs in
-- both converge
-- the owner check
-- the password changed: the other device is refused once, then parked
-- signing out
+- sign up with an invite, a second device signs in, and each reads what the
+  other wrote, record for record, passwords included
+- the server's rules through the plugin: the limit, deleted stays deleted, a
+  password a write leaves out kept, all or nothing, an invalid write named
+- a resent batch changes nothing; a whole account fits one batch
+- the owner check takes the password typed again, and an empty one never
+  reaches the server
+- the password changed elsewhere: the other device is refused once, then
+  parked — across a relaunch — until it signs in with the new one
+- a session that ended: one more sign-in, with the saved password
+- signing out forgets the session; a first profile at sign-up; an invite spent
+  once, and a closed or open server
+- throttled sign-ins wait (`backoff`, `too-many-attempts`), and latch nothing
 
 It is the one place TypeScript touches this repository, and its `AGENTS.md`
 says so. Nothing the server ships comes from it.

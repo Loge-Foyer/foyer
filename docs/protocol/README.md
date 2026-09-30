@@ -12,9 +12,6 @@ Everything below is what the client relies on. How each call reaches the
 server is at the end; `docs/api` has the routes, the collections and their
 rules.
 
-> The server speaks this protocol. The app's plugin still speaks Phase 4's
-> until the account moves to records, Phase 6's next step.
-
 ## An account is its records
 
 An account is small: at most `maxProfiles` profiles, their PINs and

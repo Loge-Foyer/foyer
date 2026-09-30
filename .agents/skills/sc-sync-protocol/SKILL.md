@@ -129,7 +129,7 @@ for lost and uploaded again. That last rule is why most of this list exists.
 ```bash
 go test ./...
 go vet ./... && gofmt -l .
-(cd harness && npm install && npm test)   # from the plugin's move to records
+(cd harness && npm install && npm test)   # the real plugin against the real binary
 ```
 
 Run both after any change to a collection, rule, hook, route or migration. A
@@ -141,6 +141,5 @@ repository's `npm test` too.
 
 Phase 6 — the server runs, on PocketBase v0.40.4: the collections and rules,
 the hooks, the routes, the invite command, and `go test ./...` over all of
-them and the shared fixtures. No device speaks to it until the
-`sync/custom-server` plugin moves to records, the next step; the harness
-comes with that move.
+them and the shared fixtures. The app's `sync/custom-server` plugin speaks
+it, and the harness drives that plugin against the real binary.

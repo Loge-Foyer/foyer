@@ -67,11 +67,11 @@ record: several households share a server.
 the account's collections and their rules, the hooks, `info` and `sign-up`,
 and the `invite` command. `go test ./...` proves it — the rules, sign-up and
 invites, the hooks, batches, sessions and the shared fixtures. The app's
-`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
-moves to records, the next step, so no device syncs with this server yet; the
-harness that drives the real plugin against it comes with that move. The
-Dockerfile and compose file are written, and not yet built: Docker was not
-there. The Phase 4 TypeScript server is gone; git keeps it.
+`sync/custom-server` plugin speaks it, and the harness drives that very plugin
+against the real binary: sign-up and sign-in, the rules, the owner check, a
+password changed elsewhere, a session that ended, signing out, and
+throttling. The Dockerfile and compose file are written, and not yet built:
+Docker was not there. The Phase 4 TypeScript server is gone; git keeps it.
 
 ## Git
 

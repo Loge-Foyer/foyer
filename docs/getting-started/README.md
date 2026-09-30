@@ -5,10 +5,6 @@ their PINs and preferences, and the household's sources and IPTV
 subscriptions — with their passwords — kept in step between its devices. It is
 PocketBase, with the app's collections added.
 
-> The server runs, and the app speaks to it once its account moves to records
-> — Phase 6's next step. Until then, the app's "Your own server" still speaks
-> the retired Phase 4 protocol.
-
 ## Run it
 
 With Go 1.26 or later:

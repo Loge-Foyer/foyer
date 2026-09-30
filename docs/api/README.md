@@ -4,9 +4,6 @@ The routes the `sync/custom-server` plugin calls, the collections behind them,
 and how they fail. Most are PocketBase's own, used as they are; two are this
 server's. `protocol/` says what the calls mean.
 
-> The server is built; the app's plugin speaks to it once the account moves to
-> records, Phase 6's next step.
-
 - Bodies are JSON.
 - The session token goes in `Authorization`; PocketBase takes it with or
   without `Bearer `.

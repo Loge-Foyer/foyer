@@ -7,9 +7,6 @@ your own devices.
 It is [PocketBase](https://pocketbase.io), with the app's collections added:
 one program, one database, and a dashboard to see what it holds.
 
-> The server is built; the app speaks to it once its account moves to records,
-> the next step — see *Current state*.
-
 ---
 
 ## The problem it solves
@@ -76,11 +73,11 @@ are readable too — a PIN is a child lock, not a password.
 the account's collections and their rules, the hooks, `info` and `sign-up`,
 and the `invite` command. `go test ./...` proves it — the rules, sign-up and
 invites, the hooks, batches, sessions and the shared fixtures. The app's
-`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
-moves to records, the next step, so no device syncs with this server yet; the
-harness that drives the real plugin against it comes with that move. The
-Dockerfile and compose file are written, and not yet built: Docker was not
-there.
+`sync/custom-server` plugin speaks it, and the harness drives that very plugin
+against the real binary: sign-up and sign-in, the rules, the owner check, a
+password changed elsewhere, a session that ended, signing out, and
+throttling. The Dockerfile and compose file are written, and not yet built:
+Docker was not there.
 
 ## Documentation
 

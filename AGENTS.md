@@ -44,8 +44,7 @@ the app's collections, rules and hooks.
 - **One exception, test-only:** `harness/` (Node, vitest) builds the binary and
   drives the real `sync/custom-server` plugin, aliased to its source, against
   it. `harness/AGENTS.md` states the exception. Nothing else here is
-  TypeScript, and nothing in `harness/` ships. It arrives with the plugin's
-  move to records.
+  TypeScript, and nothing in `harness/` ships.
 - **Never the app.**
 
 ## What the server promises
@@ -104,7 +103,7 @@ internal/invites/    codes, their hashes, and the invite command
 internal/server/     Bind: the hooks, the routes and the trusted proxy — and the HTTP tests
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
 migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser
-harness/             Node + vitest, test-only: the real plugin against the real binary (next step)
+harness/             Node + vitest, test-only: the real plugin against the real binary
 Dockerfile           two stages: a Go build, then the binary alone
 docker-compose.yml   the server, and pb_data in a volume
 ```
@@ -113,9 +112,6 @@ Go tests sit beside what they test. Everything else is PocketBase's: `serve`,
 `superuser`, `migrate`, users and sessions, the record APIs, `/api/batch`, the
 dashboard at `/_/`, backups and the rate limiter.
 
-**Transitional:** until the plugin moves to records, no device speaks to this
-server, and the Go tests are the whole proof; the harness comes with that
-move.
 
 ## Rules that break silently
 
@@ -158,8 +154,8 @@ move.
 the account's collections and their rules, the hooks, `info` and `sign-up`,
 and the `invite` command. `go test ./...` proves it — the rules, sign-up and
 invites, the hooks, batches, sessions and the shared fixtures. The app's
-`sync/custom-server` plugin still speaks the retired Phase 4 protocol until it
-moves to records, the next step, so no device syncs with this server yet; the
-harness that drives the real plugin against it comes with that move. The
-Dockerfile and compose file are written, and not yet built: Docker was not
-there.
+`sync/custom-server` plugin speaks it, and the harness drives that very plugin
+against the real binary: sign-up and sign-in, the rules, the owner check, a
+password changed elsewhere, a session that ended, signing out, and
+throttling. The Dockerfile and compose file are written, and not yet built:
+Docker was not there.
