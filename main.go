@@ -25,7 +25,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app := pocketbase.New()
+	// Dev mode — which PocketBase turns on by itself under `go run` — prints
+	// every SQL statement to stdout, and so buries the one line a script reads
+	// from `invite`. It is there for the asking: --dev.
+	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDev: false})
 	// The migrations own the collections: none is ever written from the dashboard.
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{Automigrate: false})
 	server.Bind(app, cfg)

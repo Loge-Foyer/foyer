@@ -26,6 +26,10 @@ go build -o streaming-center-sync .       # one static binary
   `pb_data` to start again from nothing.
 - **`.env`** is read when the server starts: `SC_MAX_PROFILES`, `SC_SIGNUP`,
   `SC_ADMIN_EMAIL`, `SC_ADMIN_PASSWORD`, `SC_TRUST_PROXY`.
+- **Dev mode is off unless asked for** (`--dev`). PocketBase turns it on by
+  itself under `go run`, and it prints every SQL statement to stdout — which
+  buried the code `invite` prints, the one line a script reads. `main.go`
+  keeps it off by default; `go run . serve --dev` still shows the statements.
 
 ## Migrations
 
