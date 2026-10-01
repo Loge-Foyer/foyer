@@ -38,6 +38,18 @@ const connection = (id: ConnectionId, options: { readonly label?: string; readon
     secrets: options.password === undefined ? {} : { password: options.password },
   },
 });
+const subscription = (id: string, user: UserId, connection: ConnectionId, channel: string, title: string): AccountRecord => ({
+  kind: 'subscription',
+  key: id,
+  deleted: false,
+  data: { subscriptionId: id, userId: user, connectionId: connection, externalId: channel, title, addedAt: '2026-10-01T12:00:00.000Z' },
+});
+const playlist = (id: string, user: UserId, title: string, items: readonly { connectionId: ConnectionId; externalId: string }[]): AccountRecord => ({
+  kind: 'playlist',
+  key: id,
+  deleted: false,
+  data: { playlistId: id, userId: user, title, items, createdAt: '2026-10-01T12:00:00.000Z', updatedAt: '2026-10-01T12:00:00.000Z' },
+});
 const profileValues = (id: ConnectionId, user: UserId, password?: string): AccountRecord => ({
   kind: 'profileValues',
   key: `${id}/${user}`,
@@ -107,6 +119,47 @@ describe('the real plugin against the real server', () => {
     // The sign-up's session was A's own; B signed in once.
     expect(a.http.count(SIGN_IN)).toBe(0);
     expect(b.http.count(SIGN_IN)).toBe(1);
+  });
+
+  it('carries a profile’s own lists between devices, and a delete stays deleted', async () => {
+    const server = await serve();
+    const a = await signedUp(server);
+    const subId = '4d5e6f7a-8b9c-4d0e-9f1a-3b4c5d6e7f8a';
+    const listId = '5e6f7a8b-9c0d-4e1f-8a2b-4c5d6e7f8a9b';
+
+    // Parents first, as a batch must send them.
+    expect(
+      await a.account.push([
+        profile(sam, 'Sam'),
+        connection(home),
+        subscription(subId, sam, home, 'UCuAXFkgsw1L7xaCfnd5JJOw', 'Some Channel'),
+        playlist(listId, sam, 'Things worth rewatching', [
+          { connectionId: home, externalId: 'dQw4w9WgXcQ' },
+          { connectionId: home, externalId: 'm-arrival' },
+        ]),
+      ]),
+    ).toEqual({ kind: 'stored' });
+
+    const b = await device(server, { name: 'b', username: 'sam', password: PASSWORD });
+    const read = byIdentity((await b.account.pull()).records);
+    expect(read.get(`subscription/${subId}`)).toEqual(subscription(subId, sam, home, 'UCuAXFkgsw1L7xaCfnd5JJOw', 'Some Channel'));
+    expect(read.get(`playlist/${listId}`)).toEqual(
+      playlist(listId, sam, 'Things worth rewatching', [
+        { connectionId: home, externalId: 'dQw4w9WgXcQ' },
+        { connectionId: home, externalId: 'm-arrival' },
+      ]),
+    );
+
+    // A list is edited as a whole, and the last push wins.
+    expect(await b.account.push([playlist(listId, sam, 'Renamed on B', [{ connectionId: home, externalId: 'dQw4w9WgXcQ' }])])).toEqual({
+      kind: 'stored',
+    });
+    // Unfollowed on B: a tombstone carries no data, and no parent with it.
+    expect(await b.account.push([{ kind: 'subscription', key: subId, deleted: true }])).toEqual({ kind: 'stored' });
+
+    const back = byIdentity((await a.account.pull()).records);
+    expect(back.get(`playlist/${listId}`)).toMatchObject({ data: { title: 'Renamed on B', items: [{ externalId: 'dQw4w9WgXcQ' }] } });
+    expect(back.get(`subscription/${subId}`)).toEqual({ kind: 'subscription', key: subId, deleted: true });
   });
 
   it('keeps the server’s rules: the limit, deleted stays deleted, a password left out kept, all or nothing', async () => {

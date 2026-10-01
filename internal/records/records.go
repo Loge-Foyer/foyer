@@ -21,11 +21,13 @@ const (
 	KindPreference    = "preference"
 	KindConnection    = "connection"
 	KindProfileValues = "profileValues"
+	KindSubscription  = "subscription"
+	KindPlaylist      = "playlist"
 )
 
 // Kinds, parents first: the order a device writes them in, so a child never
 // arrives before the record it points at.
-var Kinds = []string{KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues}
+var Kinds = []string{KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues, KindSubscription, KindPlaylist}
 
 var collections = map[string]string{
 	KindProfile:       "profiles",
@@ -33,6 +35,8 @@ var collections = map[string]string{
 	KindPreference:    "preferences",
 	KindConnection:    "connections",
 	KindProfileValues: "connection_profile_values",
+	KindSubscription:  "subscriptions",
+	KindPlaylist:      "playlists",
 }
 
 // Collection is where a kind of record lives.
@@ -51,7 +55,7 @@ func KindOf(collection string) (string, bool) {
 	return "", false
 }
 
-// Collections are the five that hold account data, parents first.
+// Collections are the ones that hold account data, parents first.
 func Collections() []string {
 	names := make([]string, 0, len(Kinds))
 	for _, kind := range Kinds {
@@ -119,6 +123,16 @@ func Validate(owner, kind, id string, body map[string]any) error {
 	case KindProfileValues:
 		expect(errs, body, "connection", ID(owner, KindConnection, parts[0]))
 		expect(errs, body, "profile", ID(owner, KindProfile, parts[1]))
+	case KindSubscription, KindPlaylist:
+		// Their key is a generated id and names no parent, so the parents come
+		// from the body — and the relation must agree with the key beside it,
+		// or a device could point one account's record at another's profile.
+		if !deleted {
+			expectDerived(errs, body, "profile", "profile_key", owner, KindProfile)
+			if kind == KindSubscription {
+				expectDerived(errs, body, "connection", "connection_key", owner, KindConnection)
+			}
+		}
 	}
 
 	if !deleted {
@@ -173,7 +187,64 @@ func liveData(errs validation.Errors, kind string, parts []string, body map[stri
 			errs["off"] = invalid("off is a boolean")
 		}
 		values(errs, body)
+	case KindSubscription:
+		if external, ok := body["external_id"].(string); !ok || !isID(external) {
+			errs["external_id"] = invalid("a subscription names a channel on its source")
+		}
+		if title, ok := body["title"].(string); !ok || !isText(title) {
+			errs["title"] = invalid("a title is text")
+		}
+		if added, ok := body["added_at"].(string); !ok || !isText(added) {
+			errs["added_at"] = invalid("added_at is a date, as text")
+		}
+	case KindPlaylist:
+		if title, ok := body["title"].(string); !ok || !isText(title) || strings.TrimSpace(title) == "" {
+			errs["title"] = invalid("a playlist's title is text, and not blank")
+		}
+		if description, ok := body["description"].(string); !ok || !isText(description) {
+			errs["description"] = invalid("a description is text")
+		}
+		if !isMediaKeyList(body["items"]) {
+			errs["items"] = invalid("a playlist's items each name a connection and an id on it")
+		}
+		// `{}` is how "not a mirror of anything" is stored: PocketBase's JSON
+		// field has no null, and an absent source is the common case.
+		if source, ok := body["source"].(map[string]any); !ok || (len(source) > 0 && !isMediaKey(source)) {
+			errs["source"] = invalid("a source names a connection and an id on it, or is empty")
+		}
+		for _, name := range []string{"created_at", "updated_at"} {
+			if at, ok := body[name].(string); !ok || !isText(at) {
+				errs[name] = invalid(name + " is a date, as text")
+			}
+		}
 	}
+}
+
+// maxList is the api's MAX_LIST: long enough for anyone, short enough that the
+// whole account still reads in one go.
+const maxList = 2000
+
+func isMediaKey(value any) bool {
+	entry, ok := value.(map[string]any)
+	if !ok {
+		return false
+	}
+	connection, hasConnection := entry["connectionId"].(string)
+	external, hasExternal := entry["externalId"].(string)
+	return hasConnection && hasExternal && isID(connection) && isID(external)
+}
+
+func isMediaKeyList(value any) bool {
+	entries, ok := value.([]any)
+	if !ok || len(entries) > maxList {
+		return false
+	}
+	for _, entry := range entries {
+		if !isMediaKey(entry) {
+			return false
+		}
+	}
+	return true
 }
 
 // values checks what a connection and a profile's values share: their fields,
@@ -194,6 +265,17 @@ func values(errs validation.Errors, body map[string]any) {
 	}
 }
 
+// expectDerived checks that a relation is the derived id of the key beside it:
+// the key says which profile, and the relation must be that profile's id.
+func expectDerived(errs validation.Errors, body map[string]any, field, keyField, owner, parentKind string) {
+	parentKey, ok := body[keyField].(string)
+	if !ok || !isID(parentKey) {
+		errs[keyField] = invalid("the parent's key is missing")
+		return
+	}
+	expect(errs, body, field, ID(owner, parentKind, parentKey))
+}
+
 func expect(errs validation.Errors, body map[string]any, field, want string) {
 	if got, ok := body[field].(string); !ok || got != want {
 		errs[field] = invalid("the parent is not the one the key names")
@@ -208,7 +290,7 @@ func keyParts(kind string, key string) ([]string, bool) {
 		return parts, len(parts) == 2 && isID(parts[0]) && isKey(parts[1])
 	case KindProfileValues:
 		return parts, len(parts) == 2 && isID(parts[0]) && isID(parts[1])
-	case KindProfile, KindPin, KindConnection:
+	case KindProfile, KindPin, KindConnection, KindSubscription, KindPlaylist:
 		return parts, len(parts) == 1 && isID(parts[0])
 	}
 	return nil, false

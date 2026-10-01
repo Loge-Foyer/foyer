@@ -449,7 +449,7 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 		if !ok {
 			t.Fatalf("%v cannot be sent", record)
 		}
-		writes := append(parentsOf(alex, kind, body["key"].(string)), put(kind, body))
+		writes := append(parentsOf(alex, kind, body["key"].(string), body), put(kind, body))
 		if got := h.batch(alex, writes...); got.status != http.StatusOK {
 			t.Errorf("refused %v: %d %v", record, got.status, got.body)
 		}
@@ -461,7 +461,7 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 			continue // the plugin never sends it
 		}
 		key, _ := body["key"].(string)
-		writes := append(parentsOf(alex, kind, key), put(kind, body))
+		writes := append(parentsOf(alex, kind, key, body), put(kind, body))
 		if got := h.batch(alex, writes...); got.status != http.StatusBadRequest {
 			t.Errorf("stored %s: %d", fixture.Why, got.status)
 		}
@@ -469,7 +469,7 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 }
 
 // parentsOf writes the live parents a child's key names, so it is the child alone that is judged.
-func parentsOf(who account, kind, key string) []map[string]any {
+func parentsOf(who account, kind, key string, body map[string]any) []map[string]any {
 	parts := strings.SplitN(key, "/", 2)
 	switch kind {
 	case records.KindPin, records.KindPreference:
@@ -482,6 +482,16 @@ func parentsOf(who account, kind, key string) []map[string]any {
 			put(records.KindConnection, connection(who, parts[0], []string{}, map[string]any{})),
 			put(records.KindProfile, profile(who, parts[1], "Parent")),
 		}
+	case records.KindSubscription, records.KindPlaylist:
+		// Their key is a generated id, so the parents are named in the body.
+		writes := []map[string]any{}
+		if profileKey, ok := body["profile_key"].(string); ok && profileKey != "" {
+			writes = append(writes, put(records.KindProfile, profile(who, profileKey, "Parent")))
+		}
+		if connectionKey, ok := body["connection_key"].(string); ok && connectionKey != "" {
+			writes = append(writes, put(records.KindConnection, connection(who, connectionKey, []string{}, map[string]any{})))
+		}
+		return writes
 	}
 	return nil
 }

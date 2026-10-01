@@ -57,6 +57,9 @@ func ToBody(owner string, record map[string]any) (kind string, id string, body m
 	key, _ := record["key"].(string)
 	body = map[string]any{"user": owner, "key": record["key"], "deleted": record["deleted"]}
 	parents(owner, kind, key, body)
+	if data, isMap := record["data"].(map[string]any); isMap {
+		listParents(owner, kind, data, body)
+	}
 
 	if record["deleted"] != true {
 		if data, isMap := record["data"].(map[string]any); isMap {
@@ -71,6 +74,15 @@ func ToBody(owner string, record map[string]any) (kind string, id string, body m
 			// The api's missing PIN is an empty one on the server.
 			if kind == records.KindPin && data["pin"] == nil {
 				body["pin"] = ""
+			}
+			// The api leaves these out; PocketBase has no null for them.
+			if kind == records.KindPlaylist {
+				if _, present := body["description"]; !present {
+					body["description"] = ""
+				}
+				if _, present := body["source"]; !present {
+					body["source"] = map[string]any{}
+				}
 			}
 		}
 	}
@@ -90,6 +102,14 @@ var fieldsOf = map[string]map[string]string{
 	records.KindProfileValues: {
 		"off": "off", "fields": "fields", "settings": "settings", "secretKeys": "secret_keys", "secrets": "secrets",
 	},
+	records.KindSubscription: {
+		"userId": "profile_key", "connectionId": "connection_key",
+		"externalId": "external_id", "title": "title", "addedAt": "added_at",
+	},
+	records.KindPlaylist: {
+		"userId": "profile_key", "title": "title", "description": "description",
+		"items": "items", "source": "source", "createdAt": "created_at", "updatedAt": "updated_at",
+	},
 }
 
 // keyOf is recordKey() in the api.
@@ -105,8 +125,29 @@ func keyOf(kind string, data map[string]any) string {
 		return text("userId") + "/" + text("name")
 	case records.KindConnection:
 		return text("connectionId")
+	case records.KindSubscription:
+		return text("subscriptionId")
+	case records.KindPlaylist:
+		return text("playlistId")
 	default:
 		return text("connectionId") + "/" + text("userId")
+	}
+}
+
+// listParents: a subscription's and a playlist's key is a generated id and
+// names no parent, so the parents come from the data. A tombstone has none,
+// and the server keeps the relations it already stored.
+func listParents(owner, kind string, data map[string]any, body map[string]any) {
+	text := func(name string) string {
+		value, _ := data[name].(string)
+		return value
+	}
+	switch kind {
+	case records.KindSubscription:
+		body["profile"] = records.ID(owner, records.KindProfile, text("userId"))
+		body["connection"] = records.ID(owner, records.KindConnection, text("connectionId"))
+	case records.KindPlaylist:
+		body["profile"] = records.ID(owner, records.KindProfile, text("userId"))
 	}
 }
 
