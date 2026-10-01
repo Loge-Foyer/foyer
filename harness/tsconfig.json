@@ -1,6 +1,6 @@
 {
   // The harness runs on Node, so it has Node's types. The plugin and `@sc/api`
-  // are their source in ../../streaming_center_plugins, aliased, never
+  // are their source in ../../streaming_center_app/adapters, aliased, never
   // installed: the plugin under test is the one the app ships.
   "compilerOptions": {
     "strict": true,
@@ -15,8 +15,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@sc/api": ["../../streaming_center_plugins/api/src/index.ts"],
-      "@sc/sync-custom-server": ["../../streaming_center_plugins/plugins/sync/custom-server/src/index.ts"]
+      "@sc/api": ["../../streaming_center_app/adapters/api/src/index.ts"],
+      "@sc/sync-custom-server": ["../../streaming_center_app/adapters/sync/custom-server/src/index.ts"]
     }
   },
   "include": ["test/**/*.ts", "vitest.config.ts"]

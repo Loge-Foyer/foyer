@@ -30,11 +30,11 @@ type Fixtures struct {
 	RecordIDs []RecordID       `json:"recordIds"`
 }
 
-// Load reads api/fixtures/account-records.json from the plugins repository,
-// which sits beside this one.
+// Load reads adapters/api/fixtures/account-records.json from the app, which
+// sits beside this one: the adapters moved in with Phase 9.
 func Load() (Fixtures, error) {
 	_, here, _, _ := runtime.Caller(0)
-	path := filepath.Join(filepath.Dir(here), "..", "..", "..", "streaming_center_plugins", "api", "fixtures", "account-records.json")
+	path := filepath.Join(filepath.Dir(here), "..", "..", "..", "streaming_center_app", "adapters", "api", "fixtures", "account-records.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return Fixtures{}, err
