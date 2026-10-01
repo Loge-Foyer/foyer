@@ -20,9 +20,10 @@ record contract in step; this keeps the *plugin* in step: the real
   host context rebuilt on Node — `fetch`, node:crypto, a session store that
   outlives a provider — with every exchange recorded, so a test can count the
   sign-ins.
-- `@sc/api` and the plugin are aliased to their source in
-  `../../streaming_center_plugins` (`vitest.config.ts`, `tsconfig.json`),
-  never installed.
+- `@sc/api` and the adapter are aliased to their source in
+  `../../streaming_center_app/adapters` (`vitest.config.ts`, `tsconfig.json`),
+  never installed. Both aliases are relative paths into another repository,
+  so they break the moment the adapters move — as they did in Phase 9.
 
 ## Rules
 

@@ -8,7 +8,7 @@ invites, the profile limit.
 1. `../.claude/streaming-center-architecture.md`, especially §7 (the account
    role), §9 (syncing with your own server), §10 (conflicts) and §17 (your own
    server). The server is the other end of that contract.
-2. `../CLAUDE.md` — how the three repositories relate.
+2. `../CLAUDE.md` — how this repository and the app relate.
 3. `AGENTS.md` here — imported below.
 4. `docs/protocol/` — the protocol as the client speaks it — and `docs/api/`.
 

@@ -133,7 +133,7 @@ go vet ./... && gofmt -l .
 ```
 
 Run both after any change to a collection, rule, hook, route or migration. A
-change to the record contract starts in the plugins repository —
+change to the record contract starts in the app's `adapters/api` —
 `api/src/account.ts` and `api/fixtures/account-records.json` — and runs that
 repository's `npm test` too.
 

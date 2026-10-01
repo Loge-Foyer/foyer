@@ -1,8 +1,8 @@
 # Account protocol
 
 The protocol as the client speaks it. The app reaches your own server through
-the `sync/custom-server` plugin's `ConnectedAccount` (`@sc/api`, in
-`streaming_center_plugins/api/src/account.ts`); this server is the other end,
+the `sync/custom-server` adapter's `ConnectedAccount` (`@sc/api`, in
+`streaming_center_app/adapters/api/src/account.ts`); this server is the other end,
 and the harness here drives that plugin against the real binary. The
 development-only `sync/mock` plugin plays a pretend PocketBase in memory, and
 the app's tests run two devices against a fake one on every pair of database

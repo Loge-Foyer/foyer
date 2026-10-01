@@ -17,9 +17,9 @@ PINs and preferences, and its source and IPTV connections with their
 passwords, kept in step between its devices. Several accounts can share one
 server, each with up to `SC_MAX_PROFILES` profiles.
 
-It is the other end of the `sync/custom-server` plugin in
-`streaming_center_plugins`. The plugin is the client; this is PocketBase, with
-the app's collections, rules and hooks.
+It is the other end of the `sync/custom-server` adapter, which lives in
+`../streaming_center_app/adapters/sync/custom-server`. The adapter is the
+client; this is PocketBase, with the app's collections, rules and hooks.
 
 ## What this is not
 
@@ -39,10 +39,11 @@ the app's collections, rules and hooks.
 - **`api` states the contract.** `api/src/account.ts` is the record contract,
   and `api/fixtures/account-records.json` holds both sides to it: the api's
   tests and the Go tests read the same file. Change them together — the
-  contract in the plugins repository first, then the collections and hooks
-  here.
+  contract in `../streaming_center_app/adapters/api` first, then the
+  collections and hooks here. `internal/fixtures/fixtures.go` reads that file
+  by relative path, so it breaks loudly if either side moves.
 - **One exception, test-only:** `harness/` (Node, vitest) builds the binary and
-  drives the real `sync/custom-server` plugin, aliased to its source, against
+  drives the real `sync/custom-server` adapter, aliased to its source, against
   it. `harness/AGENTS.md` states the exception. Nothing else here is
   TypeScript, and nothing in `harness/` ships.
 - **Never the app.**

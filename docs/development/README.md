@@ -65,7 +65,7 @@ data directory, with the migrations applied:
 binary once, starts it for each test on a temporary directory and a free
 port — with the rate limits on, as in production — and drives the real
 `sync/custom-server` plugin, aliased to its source in
-`../streaming_center_plugins` and never installed, over a Node host: `fetch`,
+`../streaming_center_app/adapters` and never installed, over a Node host: `fetch`,
 node:crypto, and a session store that outlives a provider. It counts the
 sign-ins each device makes:
 
@@ -87,11 +87,11 @@ It is the one place TypeScript touches this repository, and its `AGENTS.md`
 says so. Nothing the server ships comes from it.
 
 **The shared fixtures** are
-`../streaming_center_plugins/api/fixtures/account-records.json`: records every
+`../streaming_center_app/adapters/api/fixtures/account-records.json`: records every
 side must accept, and records every side must refuse, each with its reason.
 The api's tests judge them with `isAccountRecord`; the Go tests map each to its
 collection, as the plugin does, and expect the same verdict. A change to the
-record contract changes that file first, in the plugins repository, then the
+record contract changes that file first, in the app's `adapters/api`, then the
 collections here, and both suites run.
 
 The app's tests prove the client side of the same protocol, two devices at a
