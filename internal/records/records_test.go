@@ -102,7 +102,7 @@ func TestCollectionsAndKindsGoBothWays(t *testing.T) {
 			t.Errorf("%s → %s → %s", kind, collection, back)
 		}
 	}
-	if _, ok := records.Collection("watchProgress"); ok {
+	if _, ok := records.Collection("comment"); ok {
 		t.Error("an unknown kind has a collection")
 	}
 }

@@ -92,6 +92,13 @@ func ToBody(owner string, record map[string]any) (kind string, id string, body m
 					body["source"] = map[string]any{}
 				}
 			}
+			if kind == records.KindWatchProgress {
+				for name, none := range map[string]any{"external_ids": map[string]any{}, "position_ms": 0, "duration_ms": 0, "item": map[string]any{}} {
+					if _, present := body[name]; !present {
+						body[name] = none
+					}
+				}
+			}
 		}
 	}
 	id = records.ID(owner, kind, key)
@@ -122,6 +129,12 @@ var fieldsOf = map[string]map[string]string{
 		"userId": "profile_key", "connectionId": "connection_key", "externalId": "external_id",
 		"name": "name", "number": "number", "logo": "logo", "addedAt": "added_at",
 	},
+	records.KindWatchProgress: {
+		"identity": "identity", "externalIds": "external_ids", "round": "round", "watched": "watched",
+		"positionMs": "position_ms", "durationMs": "duration_ms", "item": "item",
+		"createdAt": "created_at", "updatedAt": "updated_at",
+	},
+	records.KindSetting: {"value": "value"},
 }
 
 // keyOf is recordKey() in the api.
@@ -143,6 +156,10 @@ func keyOf(kind string, data map[string]any) string {
 		return text("playlistId")
 	case records.KindFavoriteChannel:
 		return text("favoriteId")
+	case records.KindWatchProgress:
+		return text("userId") + "/" + records.IdentityHash(text("identity"))
+	case records.KindSetting:
+		return text("name")
 	default:
 		return text("connectionId") + "/" + text("userId")
 	}
@@ -168,7 +185,7 @@ func listParents(owner, kind string, data map[string]any, body map[string]any) {
 func parents(owner, kind, key string, body map[string]any) {
 	parts := splitTwo(key)
 	switch kind {
-	case records.KindPin, records.KindPreference:
+	case records.KindPin, records.KindPreference, records.KindWatchProgress:
 		body["profile"] = records.ID(owner, records.KindProfile, parts[0])
 	case records.KindProfileValues:
 		body["connection"] = records.ID(owner, records.KindConnection, parts[0])

@@ -44,9 +44,10 @@ quietly weaken TLS, the dashboard's privacy or how backups are kept.
 **The server does not resolve conflicts.** It stores what the rules allow and
 returns it. The client decides: a pending change protects its entity, deletes
 of profiles and connections always win, and otherwise the last push wins,
-whole. Watch progress, when it travels, will resolve on the client by the
-furthest position — never by timestamp, because a device reporting position 0
-on stop would otherwise erase real progress.
+whole. Watch progress resolves on the client, field by field: a later round
+— someone chose "mark as unwatched" — wins whole; within one, watched holds
+and the position is the last push's. Never by timestamp: a device's clock
+decides nothing, and a report at 0 on stop is refused on the device itself.
 
 A server that helpfully picks a winner by `updated`, merges two writes field by
 field, or refuses a write because it looks older will silently break all of

@@ -103,7 +103,7 @@ internal/routes/     GET /api/sc/info, POST /api/sc/sign-up
 internal/invites/    codes, their hashes, and the invite command
 internal/server/     Bind: the hooks, the routes and the trusted proxy — and the HTTP tests
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
-migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels
+migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels; 7 watch progress and the account's settings
 harness/             Node + vitest, test-only: the real plugin against the real binary
 Dockerfile           two stages: a Go build, then the binary alone
 docker-compose.yml   the server, and pb_data in a volume

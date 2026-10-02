@@ -79,6 +79,8 @@ Every data collection has these, besides its own fields:
 | `subscriptions` | `subscription` | `profile`, `connection`, `profile_key`, `connection_key`, `external_id`, `title`, `added_at` |
 | `favorite_channels` | `favoriteChannel` | `profile`, `connection`, `profile_key`, `connection_key`, `external_id`, `name`, `number` — 0 for none, `logo` — empty for none, `added_at` |
 | `playlists` | `playlist` | `profile`, `profile_key`, `title`, `description`, `items` (JSON), `source` (JSON — `{}` for none), `created_at`, `updated_at` |
+| `watch_progress` | `watchProgress` | `profile` (from the key), `identity`, `external_ids` (JSON — `{}` for none), `round`, `watched`, `position_ms` and `duration_ms` — 0 for none, `item` (JSON — `{}` for none), `created_at`, `updated_at` |
+| `account_settings` | `setting` | `value` (any JSON) — the account's own, no profile's |
 
 - **`plugin_id`** is `sources/<name>` or `iptv/<name>`, the name kebab-case.
   Players and sync plugins stay on each device.
@@ -93,6 +95,12 @@ Every data collection has these, besides its own fields:
   relations are not required, because a tombstone carries no data; the hooks
   require them of every live record. Migration 5 brought the first two
   collections, and 6 the favourite channels.
+- **Watch progress** (migration 7) is keyed by its profile and a hash of what
+  was watched (`IdentityHash`, the api's `identityHash`), so its profile comes
+  from its key, as a preference's does — and every device writes the same
+  record for the same film. Two devices' records are merged on the client,
+  field by field; this server stores what it is sent. **The account's
+  settings** (`account_settings`, also 7) name no profile at all.
 - **`(user, key)` is unique** in every collection. A preference's key holds
   its profile and its name, and a profile's values' key its connection and
   its profile, so that is one of each per profile too.

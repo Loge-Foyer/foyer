@@ -1,7 +1,7 @@
 // The real sync/custom-server plugin — the one the app ships — against the
 // real binary. The Go tests prove the server's rules by calling its API; this
 // proves the plugin and the server agree on every one of them.
-import { connectionId, pluginId, userId, type AccountRecord, type ConnectionId, type UserId } from '@sc/api';
+import { connectionId, pluginId, recordKey, userId, type AccountRecord, type ConnectionId, type UserId } from '@sc/api';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { device, SIGN_IN, type Device } from './support/host';
@@ -189,6 +189,49 @@ describe('the real plugin against the real server', () => {
     const back = byIdentity((await a.account.pull()).records);
     expect(back.get(`favoriteChannel/${first}`)).toEqual({ kind: 'favoriteChannel', key: first, deleted: true });
     expect(back.get(`favoriteChannel/${second}`)).toEqual(plain);
+  });
+
+  it('carries where a profile got to, every field of it — and nothing where nothing was said — and the account’s own settings', async () => {
+    const server = await serve();
+    const a = await signedUp(server);
+    const watched = (data: Extract<AccountRecord, { kind: 'watchProgress'; deleted: false }>['data']): AccountRecord => ({
+      kind: 'watchProgress',
+      key: recordKey('watchProgress', data),
+      deleted: false,
+      data,
+    });
+    const film = watched({
+      userId: sam,
+      identity: 'tmdb:movie:603',
+      externalIds: { tmdb: '603', imdb: 'tt0133093' },
+      round: 1,
+      watched: false,
+      positionMs: 1_234_000,
+      durationMs: 8_160_000,
+      item: { type: 'movie', key: { connectionId: home, externalId: 'vod:11' }, title: 'Matrix (1999) DE', ratings: {}, genres: [], images: {} },
+      createdAt: '2026-10-01T20:00:00.000Z',
+      updatedAt: '2026-10-02T21:15:00.000Z',
+    });
+    // Watched, and nothing else said: no position, no ids, no snapshot.
+    const video = watched({ userId: sam, identity: 'youtube:dQw4w9WgXcQ', round: 0, watched: true, createdAt: '2026-10-01T20:00:00.000Z', updatedAt: '2026-10-01T20:03:33.000Z' });
+    const setting: AccountRecord = { kind: 'setting', key: 'watchStatus', deleted: false, data: { name: 'watchStatus', value: { media: false, videos: true, tv: true } } };
+    expect(await a.account.push([profile(sam, 'Sam'), film, video, setting])).toEqual({ kind: 'stored' });
+
+    const b = await device(server, { name: 'b', username: 'sam', password: PASSWORD });
+    const read = byIdentity((await b.account.pull()).records);
+    expect(read.get(`watchProgress/${film.key}`)).toEqual(film);
+    // PocketBase has no null: what was left out comes back left out.
+    expect(read.get(`watchProgress/${video.key}`)).toEqual(video);
+    expect(read.get('setting/watchStatus')).toEqual(setting);
+
+    // Marked unwatched on B: a new round, stored as it was sent — the client merges, never the server.
+    const again = watched({ userId: sam, identity: 'tmdb:movie:603', round: 2, watched: false, createdAt: '2026-10-01T20:00:00.000Z', updatedAt: '2026-10-03T09:00:00.000Z' });
+    expect(await b.account.push([again])).toEqual({ kind: 'stored' });
+    expect(byIdentity((await a.account.pull()).records).get(`watchProgress/${film.key}`)).toEqual(again);
+
+    // A watch record names its own profile in its key: another account's is refused.
+    const stray = watched({ userId: robin, identity: 'tmdb:movie:604', round: 0, watched: true, createdAt: 'x', updatedAt: 'x' });
+    expect(await a.account.push([stray])).toMatchObject({ kind: 'refused', index: 0 });
   });
 
   it('keeps the server’s rules: the limit, deleted stays deleted, a password left out kept, all or nothing', async () => {

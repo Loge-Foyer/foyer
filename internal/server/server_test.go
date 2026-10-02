@@ -444,7 +444,7 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 	}
 	h := start(t, options{})
 	for i, record := range f.Valid {
-		alex := h.signUp("valid"+string(rune('a'+i)), nil)
+		alex := h.signUp("valid"+letters(i), nil)
 		kind, _, body, ok := fixtures.ToBody(alex.id, record)
 		if !ok {
 			t.Fatalf("%v cannot be sent", record)
@@ -455,7 +455,7 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 		}
 	}
 	for i, fixture := range f.Invalid {
-		alex := h.signUp("invalid"+string(rune('a'+i)), nil)
+		alex := h.signUp("invalid"+letters(i), nil)
 		kind, _, body, ok := fixtures.ToBody(alex.id, fixture.Record)
 		if !ok {
 			continue // the plugin never sends it
@@ -468,11 +468,17 @@ func TestTheServerJudgesTheSharedFixturesAsTheApiDoes(t *testing.T) {
 	}
 }
 
+// letters names the nth account of a run in letters alone, which a username
+// takes, however many fixtures there are: aa, ab, … az, ba.
+func letters(n int) string {
+	return string(rune('a'+n/26)) + string(rune('a'+n%26))
+}
+
 // parentsOf writes the live parents a child's key names, so it is the child alone that is judged.
 func parentsOf(who account, kind, key string, body map[string]any) []map[string]any {
 	parts := strings.SplitN(key, "/", 2)
 	switch kind {
-	case records.KindPin, records.KindPreference:
+	case records.KindPin, records.KindPreference, records.KindWatchProgress:
 		return []map[string]any{put(records.KindProfile, profile(who, parts[0], "Parent"))}
 	case records.KindProfileValues:
 		if len(parts) < 2 {

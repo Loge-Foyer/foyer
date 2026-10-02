@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
@@ -24,11 +25,16 @@ const (
 	KindSubscription    = "subscription"
 	KindPlaylist        = "playlist"
 	KindFavoriteChannel = "favoriteChannel"
+	KindWatchProgress   = "watchProgress"
+	KindSetting         = "setting"
 )
 
 // Kinds, parents first: the order a device writes them in, so a child never
 // arrives before the record it points at.
-var Kinds = []string{KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues, KindSubscription, KindFavoriteChannel, KindPlaylist}
+var Kinds = []string{
+	KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues,
+	KindSubscription, KindFavoriteChannel, KindPlaylist, KindWatchProgress, KindSetting,
+}
 
 var collections = map[string]string{
 	KindProfile:         "profiles",
@@ -39,6 +45,8 @@ var collections = map[string]string{
 	KindSubscription:    "subscriptions",
 	KindPlaylist:        "playlists",
 	KindFavoriteChannel: "favorite_channels",
+	KindWatchProgress:   "watch_progress",
+	KindSetting:         "account_settings",
 }
 
 // Collection is where a kind of record lives.
@@ -84,10 +92,13 @@ const (
 	maxDepth        = 32
 	// An image reference is an address more often than not, and some run long.
 	maxLogo = 2048
+	// An identity is a catalogue id, or a title and a year: never long.
+	maxIdentity = 300
 )
 
 var (
 	keyPattern    = regexp.MustCompile(`^[a-z][A-Za-z0-9]*$`)
+	hashPattern   = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	pinPattern    = regexp.MustCompile(`^[0-9]{4}$`)
 	pluginPattern = regexp.MustCompile(`^(sources|iptv)/[a-z][a-z0-9-]*$`)
 	perProfile    = []string{"none", "credentials", "all"}
@@ -122,7 +133,7 @@ func Validate(owner, kind, id string, body map[string]any) error {
 	// A child points at its parents by their derived ids, from its own key: it
 	// cannot name another account's record, or a parent its key does not.
 	switch kind {
-	case KindPin, KindPreference:
+	case KindPin, KindPreference, KindWatchProgress:
 		expect(errs, body, "profile", ID(owner, KindProfile, parts[0]))
 	case KindProfileValues:
 		expect(errs, body, "connection", ID(owner, KindConnection, parts[0]))
@@ -219,6 +230,37 @@ func liveData(errs validation.Errors, kind string, parts []string, body map[stri
 		if added, ok := body["added_at"].(string); !ok || !isText(added) {
 			errs["added_at"] = invalid("added_at is a date, as text")
 		}
+	case KindWatchProgress:
+		if identity, ok := body["identity"].(string); !ok || identity == "" || utf16Len(identity) > maxIdentity {
+			errs["identity"] = invalid("an identity names what was watched, briefly")
+		}
+		// `{}` is how no catalogue ids, and no snapshot, are stored: PocketBase has no null.
+		if ids, ok := body["external_ids"].(map[string]any); !ok || !isIDMap(ids) {
+			errs["external_ids"] = invalid("catalogue ids are short texts under camelCase names")
+		}
+		if round, ok := wholeNumber(body["round"]); !ok || round < 0 {
+			errs["round"] = invalid("a round is a whole number from nought")
+		}
+		if _, ok := body["watched"].(bool); !ok {
+			errs["watched"] = invalid("watched is a boolean")
+		}
+		for _, name := range []string{"position_ms", "duration_ms"} {
+			if at, ok := wholeNumber(body[name]); !ok || at < 0 {
+				errs[name] = invalid(name + " is a whole number from nought, 0 for none")
+			}
+		}
+		if item, ok := body["item"].(map[string]any); !ok || !isJSON(item, 0) {
+			errs["item"] = invalid("a snapshot is an object, or empty")
+		}
+		for _, name := range []string{"created_at", "updated_at"} {
+			if at, ok := body[name].(string); !ok || !isText(at) {
+				errs[name] = invalid(name + " is a date, as text")
+			}
+		}
+	case KindSetting:
+		if value, ok := body["value"]; !ok || !isJSON(value, 0) {
+			errs["value"] = invalid("a setting's value is JSON")
+		}
 	case KindPlaylist:
 		if title, ok := body["title"].(string); !ok || !isText(title) || strings.TrimSpace(title) == "" {
 			errs["title"] = invalid("a playlist's title is text, and not blank")
@@ -314,8 +356,38 @@ func keyParts(kind string, key string) ([]string, bool) {
 		return parts, len(parts) == 2 && isID(parts[0]) && isID(parts[1])
 	case KindProfile, KindPin, KindConnection, KindSubscription, KindFavoriteChannel, KindPlaylist:
 		return parts, len(parts) == 1 && isID(parts[0])
+	case KindWatchProgress:
+		// Its profile, and the hash of what was watched: the same from every device.
+		return parts, len(parts) == 2 && isID(parts[0]) && hashPattern.MatchString(parts[1])
+	case KindSetting:
+		return parts, len(parts) == 1 && isKey(parts[0])
 	}
 	return nil, false
+}
+
+// IdentityHash is identityHash() in the api: sixteen hex digits standing for
+// an identity in a watch record's key — FNV-1a over its UTF-8, twice with
+// different offsets. Never a secret, only a name.
+func IdentityHash(identity string) string {
+	pass := func(offset uint32) uint32 {
+		hash := offset
+		for _, b := range []byte(identity) {
+			hash ^= uint32(b)
+			hash *= 0x01000193
+		}
+		return hash
+	}
+	return fmt.Sprintf("%08x%08x", pass(0x811c9dc5), pass(0x050c5d1f))
+}
+
+func isIDMap(ids map[string]any) bool {
+	for key, value := range ids {
+		id, ok := value.(string)
+		if !ok || !isKey(key) || !isID(id) {
+			return false
+		}
+	}
+	return true
 }
 
 func invalid(message string) validation.Error {
