@@ -76,6 +76,9 @@ Every data collection has these, besides its own fields:
 | `preferences` | `preference` | `profile`, `name`, `value` (JSON) |
 | `connections` | `connection` | `plugin_id`, `label`, `enabled`, `per_profile`, `fields`, `settings`, `secret_keys`, `secrets` |
 | `connection_profile_values` | `profileValues` | `connection`, `profile`, `off`, `fields`, `settings`, `secret_keys`, `secrets` |
+| `subscriptions` | `subscription` | `profile`, `connection`, `profile_key`, `connection_key`, `external_id`, `title`, `added_at` |
+| `favorite_channels` | `favoriteChannel` | `profile`, `connection`, `profile_key`, `connection_key`, `external_id`, `name`, `number` — 0 for none, `logo` — empty for none, `added_at` |
+| `playlists` | `playlist` | `profile`, `profile_key`, `title`, `description`, `items` (JSON), `source` (JSON — `{}` for none), `created_at`, `updated_at` |
 
 - **`plugin_id`** is `sources/<name>` or `iptv/<name>`, the name kebab-case.
   Players and sync plugins stay on each device.
@@ -83,6 +86,13 @@ Every data collection has these, besides its own fields:
 - **`profile` and `connection`** are relations to the parent record, so a
   child cannot exist without it; that is why a batch sends parents first. A
   child names its parents by their derived ids, from its own key.
+- **What a profile keeps for itself** — a subscription, a favourite channel,
+  a playlist — has a generated id for its key, which names no parent. So its
+  parents' keys travel in the body (`profile_key`, `connection_key`) and the
+  hooks check each relation is the derived id of the key beside it. The
+  relations are not required, because a tombstone carries no data; the hooks
+  require them of every live record. Migration 5 brought the first two
+  collections, and 6 the favourite channels.
 - **`(user, key)` is unique** in every collection. A preference's key holds
   its profile and its name, and a profile's values' key its connection and
   its profile, so that is one of each per profile too.

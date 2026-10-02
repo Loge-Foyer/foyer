@@ -76,6 +76,14 @@ func ToBody(owner string, record map[string]any) (kind string, id string, body m
 				body["pin"] = ""
 			}
 			// The api leaves these out; PocketBase has no null for them.
+			if kind == records.KindFavoriteChannel {
+				if _, present := body["number"]; !present {
+					body["number"] = 0
+				}
+				if _, present := body["logo"]; !present {
+					body["logo"] = ""
+				}
+			}
 			if kind == records.KindPlaylist {
 				if _, present := body["description"]; !present {
 					body["description"] = ""
@@ -110,6 +118,10 @@ var fieldsOf = map[string]map[string]string{
 		"userId": "profile_key", "title": "title", "description": "description",
 		"items": "items", "source": "source", "createdAt": "created_at", "updatedAt": "updated_at",
 	},
+	records.KindFavoriteChannel: {
+		"userId": "profile_key", "connectionId": "connection_key", "externalId": "external_id",
+		"name": "name", "number": "number", "logo": "logo", "addedAt": "added_at",
+	},
 }
 
 // keyOf is recordKey() in the api.
@@ -129,13 +141,15 @@ func keyOf(kind string, data map[string]any) string {
 		return text("subscriptionId")
 	case records.KindPlaylist:
 		return text("playlistId")
+	case records.KindFavoriteChannel:
+		return text("favoriteId")
 	default:
 		return text("connectionId") + "/" + text("userId")
 	}
 }
 
-// listParents: a subscription's and a playlist's key is a generated id and
-// names no parent, so the parents come from the data. A tombstone has none,
+// listParents: a subscription's, a favourite's and a playlist's key is a
+// generated id and names no parent, so the parents come from the data. A tombstone has none,
 // and the server keeps the relations it already stored.
 func listParents(owner, kind string, data map[string]any, body map[string]any) {
 	text := func(name string) string {
@@ -143,7 +157,7 @@ func listParents(owner, kind string, data map[string]any, body map[string]any) {
 		return value
 	}
 	switch kind {
-	case records.KindSubscription:
+	case records.KindSubscription, records.KindFavoriteChannel:
 		body["profile"] = records.ID(owner, records.KindProfile, text("userId"))
 		body["connection"] = records.ID(owner, records.KindConnection, text("connectionId"))
 	case records.KindPlaylist:

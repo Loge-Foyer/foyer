@@ -41,6 +41,9 @@ way that works: it pushes what changed, then reads all of it.
 | `preference` | `preferences` | `userId`, `name`, `value` (any JSON) | `{userId}/{name}` |
 | `connection` | `connections` | `connectionId`, `pluginId`, `label`, `enabled`, `perProfile`, `fields`, `settings`, `secretKeys`, `secrets` | `{connectionId}` |
 | `profileValues` | `connection_profile_values` | `connectionId`, `userId`, `off`, `fields`, `settings`, `secretKeys`, `secrets` | `{connectionId}/{userId}` |
+| `subscription` | `subscriptions` | `subscriptionId`, `userId`, `connectionId`, `externalId`, `title`, `addedAt` | `{subscriptionId}` |
+| `favoriteChannel` | `favorite_channels` | `favoriteId`, `userId`, `connectionId`, `externalId`, `name`, `number`?, `logo`?, `addedAt` | `{favoriteId}` |
+| `playlist` | `playlists` | `playlistId`, `userId`, `title`, `description`?, `items`, `source`?, `createdAt`, `updatedAt` | `{playlistId}` |
 
 - **The key** (`recordKey`) is the app's own id, or its natural key. Ids are
   at most 128 characters and never hold a `/`, since they join into keys.

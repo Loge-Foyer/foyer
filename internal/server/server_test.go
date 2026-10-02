@@ -482,7 +482,7 @@ func parentsOf(who account, kind, key string, body map[string]any) []map[string]
 			put(records.KindConnection, connection(who, parts[0], []string{}, map[string]any{})),
 			put(records.KindProfile, profile(who, parts[1], "Parent")),
 		}
-	case records.KindSubscription, records.KindPlaylist:
+	case records.KindSubscription, records.KindFavoriteChannel, records.KindPlaylist:
 		// Their key is a generated id, so the parents are named in the body.
 		writes := []map[string]any{}
 		if profileKey, ok := body["profile_key"].(string); ok && profileKey != "" {

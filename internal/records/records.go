@@ -16,27 +16,29 @@ import (
 )
 
 const (
-	KindProfile       = "profile"
-	KindPin           = "pin"
-	KindPreference    = "preference"
-	KindConnection    = "connection"
-	KindProfileValues = "profileValues"
-	KindSubscription  = "subscription"
-	KindPlaylist      = "playlist"
+	KindProfile         = "profile"
+	KindPin             = "pin"
+	KindPreference      = "preference"
+	KindConnection      = "connection"
+	KindProfileValues   = "profileValues"
+	KindSubscription    = "subscription"
+	KindPlaylist        = "playlist"
+	KindFavoriteChannel = "favoriteChannel"
 )
 
 // Kinds, parents first: the order a device writes them in, so a child never
 // arrives before the record it points at.
-var Kinds = []string{KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues, KindSubscription, KindPlaylist}
+var Kinds = []string{KindProfile, KindPin, KindPreference, KindConnection, KindProfileValues, KindSubscription, KindFavoriteChannel, KindPlaylist}
 
 var collections = map[string]string{
-	KindProfile:       "profiles",
-	KindPin:           "profile_pins",
-	KindPreference:    "preferences",
-	KindConnection:    "connections",
-	KindProfileValues: "connection_profile_values",
-	KindSubscription:  "subscriptions",
-	KindPlaylist:      "playlists",
+	KindProfile:         "profiles",
+	KindPin:             "profile_pins",
+	KindPreference:      "preferences",
+	KindConnection:      "connections",
+	KindProfileValues:   "connection_profile_values",
+	KindSubscription:    "subscriptions",
+	KindPlaylist:        "playlists",
+	KindFavoriteChannel: "favorite_channels",
 }
 
 // Collection is where a kind of record lives.
@@ -80,6 +82,8 @@ const (
 	maxID           = 128
 	maxText         = 200
 	maxDepth        = 32
+	// An image reference is an address more often than not, and some run long.
+	maxLogo = 2048
 )
 
 var (
@@ -123,13 +127,13 @@ func Validate(owner, kind, id string, body map[string]any) error {
 	case KindProfileValues:
 		expect(errs, body, "connection", ID(owner, KindConnection, parts[0]))
 		expect(errs, body, "profile", ID(owner, KindProfile, parts[1]))
-	case KindSubscription, KindPlaylist:
+	case KindSubscription, KindFavoriteChannel, KindPlaylist:
 		// Their key is a generated id and names no parent, so the parents come
 		// from the body — and the relation must agree with the key beside it,
 		// or a device could point one account's record at another's profile.
 		if !deleted {
 			expectDerived(errs, body, "profile", "profile_key", owner, KindProfile)
-			if kind == KindSubscription {
+			if kind != KindPlaylist {
 				expectDerived(errs, body, "connection", "connection_key", owner, KindConnection)
 			}
 		}
@@ -193,6 +197,24 @@ func liveData(errs validation.Errors, kind string, parts []string, body map[stri
 		}
 		if title, ok := body["title"].(string); !ok || !isText(title) {
 			errs["title"] = invalid("a title is text")
+		}
+		if added, ok := body["added_at"].(string); !ok || !isText(added) {
+			errs["added_at"] = invalid("added_at is a date, as text")
+		}
+	case KindFavoriteChannel:
+		if external, ok := body["external_id"].(string); !ok || !isID(external) {
+			errs["external_id"] = invalid("a favourite names a channel on its source")
+		}
+		if name, ok := body["name"].(string); !ok || !isText(name) || strings.TrimSpace(name) == "" {
+			errs["name"] = invalid("a channel's name is text, and not blank")
+		}
+		// The api's missing number is 0 here, and its missing logo empty:
+		// PocketBase has no null for either.
+		if number, ok := wholeNumber(body["number"]); !ok || number < 0 {
+			errs["number"] = invalid("a channel's number is a whole number, 0 for none")
+		}
+		if logo, ok := body["logo"].(string); !ok || utf16Len(logo) > maxLogo {
+			errs["logo"] = invalid("a logo is a reference no longer than an address")
 		}
 		if added, ok := body["added_at"].(string); !ok || !isText(added) {
 			errs["added_at"] = invalid("added_at is a date, as text")
@@ -290,7 +312,7 @@ func keyParts(kind string, key string) ([]string, bool) {
 		return parts, len(parts) == 2 && isID(parts[0]) && isKey(parts[1])
 	case KindProfileValues:
 		return parts, len(parts) == 2 && isID(parts[0]) && isID(parts[1])
-	case KindProfile, KindPin, KindConnection, KindSubscription, KindPlaylist:
+	case KindProfile, KindPin, KindConnection, KindSubscription, KindFavoriteChannel, KindPlaylist:
 		return parts, len(parts) == 1 && isID(parts[0])
 	}
 	return nil, false
@@ -311,6 +333,23 @@ func utf16Len(s string) int {
 		}
 	}
 	return n
+}
+
+// wholeNumber reads a number as a device's JSON brings it — a float64 — or as
+// a test writes one, and says whether it is whole.
+func wholeNumber(value any) (float64, bool) {
+	var number float64
+	switch typed := value.(type) {
+	case float64:
+		number = typed
+	case int:
+		number = float64(typed)
+	case int64:
+		number = float64(typed)
+	default:
+		return 0, false
+	}
+	return number, !math.IsInf(number, 0) && number == math.Trunc(number)
 }
 
 // isID refuses a slash: ids join into keys with one, so an id holding it could

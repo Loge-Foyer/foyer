@@ -44,6 +44,12 @@ const subscription = (id: string, user: UserId, connection: ConnectionId, channe
   deleted: false,
   data: { subscriptionId: id, userId: user, connectionId: connection, externalId: channel, title, addedAt: '2026-10-01T12:00:00.000Z' },
 });
+const favorite = (id: string, user: UserId, connection: ConnectionId, channel: string, name: string, extra: { number?: number; logo?: string } = {}): AccountRecord => ({
+  kind: 'favoriteChannel',
+  key: id,
+  deleted: false,
+  data: { favoriteId: id, userId: user, connectionId: connection, externalId: channel, name, ...extra, addedAt: '2026-10-02T12:00:00.000Z' },
+});
 const playlist = (id: string, user: UserId, title: string, items: readonly { connectionId: ConnectionId; externalId: string }[]): AccountRecord => ({
   kind: 'playlist',
   key: id,
@@ -160,6 +166,29 @@ describe('the real plugin against the real server', () => {
     const back = byIdentity((await a.account.pull()).records);
     expect(back.get(`playlist/${listId}`)).toMatchObject({ data: { title: 'Renamed on B', items: [{ externalId: 'dQw4w9WgXcQ' }] } });
     expect(back.get(`subscription/${subId}`)).toEqual({ kind: 'subscription', key: subId, deleted: true });
+  });
+
+  it('carries a profile’s favourite channels between devices, number, logo and all — or neither', async () => {
+    const server = await serve();
+    const a = await signedUp(server);
+    const first = '6f7a8b9c-0d1e-4f2a-9b3c-5d6e7f8a9b0c';
+    const second = '7a8b9c0d-1e2f-4a3b-8c4d-6e7f8a9b0c1d';
+    const ard = favorite(first, sam, home, 'ch:101', 'Das Erste', { number: 1, logo: 'http://portal.test/stalker_portal/misc/logos/320/101.png' });
+    // A Stalker series' id holds a colon, encoded: the id is the source's, and may hold anything but a slash.
+    const plain = favorite(second, sam, home, 'ch:18390%3A1', 'No number, no logo');
+    expect(await a.account.push([profile(sam, 'Sam'), connection(home), ard, plain])).toEqual({ kind: 'stored' });
+
+    const b = await device(server, { name: 'b', username: 'sam', password: PASSWORD });
+    const read = byIdentity((await b.account.pull()).records);
+    expect(read.get(`favoriteChannel/${first}`)).toEqual(ard);
+    // PocketBase has no null: no number and no logo come back as nothing at all.
+    expect(read.get(`favoriteChannel/${second}`)).toEqual(plain);
+
+    // Removed on B: a tombstone carries no data, and the other stays.
+    expect(await b.account.push([{ kind: 'favoriteChannel', key: first, deleted: true }])).toEqual({ kind: 'stored' });
+    const back = byIdentity((await a.account.pull()).records);
+    expect(back.get(`favoriteChannel/${first}`)).toEqual({ kind: 'favoriteChannel', key: first, deleted: true });
+    expect(back.get(`favoriteChannel/${second}`)).toEqual(plain);
   });
 
   it('keeps the server’s rules: the limit, deleted stays deleted, a password left out kept, all or nothing', async () => {
