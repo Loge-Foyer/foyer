@@ -109,4 +109,10 @@ full of rules. This file is the one written for you.
 
 ## Licence
 
-**GPL-3.0-or-later**, like the app: one project, one licence.
+**AGPL-3.0-or-later**, like the app: one project, one licence. Anyone may
+run Foyer, change it, and host it for others — for money too — as long as
+they give those users its complete source, under the same licence. A renamed
+copy owes it just the same, and none may be closed.
+
+One additional term (`NOTICE`, under the licence's section 7(b)): a work
+based on Foyer keeps "Based on Foyer" and a link to this repository.
