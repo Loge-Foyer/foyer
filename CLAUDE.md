@@ -76,5 +76,7 @@ Docker was not there. The Phase 4 TypeScript server is gone; git keeps it.
 
 ## Git
 
-This repository has **no remote and should not get one**. Commit here; never at
-the workspace root. Conventional commit style.
+This repository is `github.com/Loge-Foyer/foyer`: `origin`, on `main`.
+
+- Commit here; never at the workspace root. Conventional commit style.
+- Push only when asked, and never force-push `main`.
