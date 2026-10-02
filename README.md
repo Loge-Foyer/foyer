@@ -1,8 +1,8 @@
 # Foyer — your own server
 
-A small server you run yourself, so your household's account — its profiles,
-their settings, and your sources with their passwords — follows you between
-your own devices.
+A small server you run yourself, so your household's account in
+[Loge](https://github.com/Loge-Foyer/loge) — its profiles, their settings, and
+your sources with their passwords — follows you between your own devices.
 
 It is [PocketBase](https://pocketbase.io), with the app's collections added:
 one program, one database, and a dashboard to see what it holds.
@@ -20,8 +20,8 @@ their PINs and preferences, the sources and IPTV subscriptions you added — and
 a TMDB key, if you gave one — and what each profile follows, lists and watched.
 A device holds one account, and it lives in one of two places:
 
-- **On the device.** Nothing to run. To move it, export a backup file, or let
-  the app keep one in iCloud, Google Drive or OneDrive.
+- **On the device.** Nothing to run. To move it, export a backup file.
+  Keeping one in iCloud, Google Drive or OneDrive by itself comes later.
 - **On your own server** — this. Every device signed in to it stays in step.
 
 What you watched on a media server is already taken care of: Jellyfin keeps
@@ -68,22 +68,45 @@ passwords.
 Your account password is different: the server keeps only a hash of it. PINs
 are readable too — a PIN is a child lock, not a password.
 
+## Running it
+
+With Go 1.26 or later:
+
+```bash
+go run . serve --http=0.0.0.0:8090
+```
+
+Then make the dashboard's superuser and an invite for the first account.
+`docs/getting-started` walks through both, and through Docker.
+
 ## Current state
 
-**Phase 6 — the server runs.** PocketBase v0.40.4, used as a Go framework:
-the account's collections and their rules, the hooks, `info` and `sign-up`,
-and the `invite` command. `go test ./...` proves it — the rules, sign-up and
-invites, the hooks, batches, sessions and the shared fixtures. The app's
-`sync/custom-server` plugin speaks it, and the harness drives that very plugin
-against the real binary: sign-up and sign-in, the rules, the owner check, a
-password changed elsewhere, a session that ended, signing out, and
-throttling. The Dockerfile and compose file are written, and not yet built:
-Docker was not there.
+**2026.10.1, the first version.** PocketBase v0.40.4, used as a Go framework.
+
+- **The account's collections and their rules**: profiles, PINs,
+  preferences, connections and each profile's values on them. Then what a
+  profile keeps for itself: subscriptions, playlists, favourite channels and
+  watch progress. Then the account's own settings.
+- **The hooks**, `info` and `sign-up`, and the `invite` command.
+- **The dashboard** wears Foyer's icon.
+- **`go test ./...` proves it**: the rules, sign-up and invites, the hooks,
+  batches, sessions and the shared fixtures.
+- **The app's `sync/custom-server` adapter speaks it**, and the harness
+  drives that very adapter against the real binary: sign-up and sign-in, the
+  rules, the owner check, a password changed elsewhere, a session that ended,
+  signing out, and throttling.
+- **The Dockerfile and compose file are written**, and not yet built.
 
 ## Documentation
 
 `docs/` covers getting started, the account protocol, the routes and
 collections, deployment and development.
 
-The full architecture is in
-[`../.claude/architecture.md`](../.claude/architecture.md).
+`CLAUDE.md` and `AGENTS.md` are written for AI coding assistants — denser, and
+full of rules. This file is the one written for you.
+
+---
+
+## Licence
+
+**GPL-3.0-or-later**, like the app: one project, one licence.
