@@ -29,7 +29,7 @@ and the app's sync engine live in the other repositories.
 | `profiles` | `name` | `user = @request.auth.id` to list, view, create, update |
 | `profile_pins` | `profile`, `pin` | the same |
 | `preferences` | `profile`, `name`, `value`; unique `(profile, name)` | the same |
-| `connections` | `plugin_id` (`sources/*`, `iptv/*`), `label`, `enabled`, `per_profile`, `fields`, `settings`, `secret_keys`, `secrets` | the same |
+| `connections` | `plugin_id` (`sources/*`, `iptv/*`, `metadata/*`), `label`, `enabled`, `per_profile`, `fields`, `settings`, `secret_keys`, `secrets` | the same |
 | `connection_profile_values` | `connection`, `profile`, `off`, `fields`, `settings`, `secret_keys`, `secrets`; unique `(connection, profile)` | the same |
 | `invites` | the code's hash, expiry, who used it | superusers only |
 

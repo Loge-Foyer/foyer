@@ -82,8 +82,8 @@ Every data collection has these, besides its own fields:
 | `watch_progress` | `watchProgress` | `profile` (from the key), `identity`, `external_ids` (JSON — `{}` for none), `round`, `watched`, `position_ms` and `duration_ms` — 0 for none, `item` (JSON — `{}` for none), `created_at`, `updated_at` |
 | `account_settings` | `setting` | `value` (any JSON) — the account's own, no profile's |
 
-- **`plugin_id`** is `sources/<name>` or `iptv/<name>`, the name kebab-case.
-  Players and sync plugins stay on each device.
+- **`plugin_id`** is `sources/<name>`, `iptv/<name>` or `metadata/<name>`, the
+  name kebab-case. Players and sync plugins stay on each device.
 - **`per_profile`** is `none`, `credentials` or `all`.
 - **`profile` and `connection`** are relations to the parent record, so a
   child cannot exist without it; that is why a batch sends parents first. A

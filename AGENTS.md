@@ -30,7 +30,8 @@ client; this is PocketBase, with the app's collections, rules and hooks.
   the app reads it and writes it back through that source's media role.
 - **Not a place for what belongs to a device.** Players, sync settings — this
   server's own sign-in among them — the default profile, sessions and caches
-  never reach it. `plugin_id` takes `sources/*` and `iptv/*` only.
+  never reach it. `plugin_id` takes `sources/*`, `iptv/*` and `metadata/*`
+  only.
 
 ## Boundaries
 

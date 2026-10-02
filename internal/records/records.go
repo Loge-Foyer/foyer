@@ -100,7 +100,7 @@ var (
 	keyPattern    = regexp.MustCompile(`^[a-z][A-Za-z0-9]*$`)
 	hashPattern   = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	pinPattern    = regexp.MustCompile(`^[0-9]{4}$`)
-	pluginPattern = regexp.MustCompile(`^(sources|iptv)/[a-z][a-z0-9-]*$`)
+	pluginPattern = regexp.MustCompile(`^(sources|iptv|metadata)/[a-z][a-z0-9-]*$`)
 	perProfile    = []string{"none", "credentials", "all"}
 )
 
@@ -185,7 +185,7 @@ func liveData(errs validation.Errors, kind string, parts []string, body map[stri
 		}
 	case KindConnection:
 		if plugin, ok := body["plugin_id"].(string); !ok || !pluginPattern.MatchString(plugin) {
-			errs["plugin_id"] = invalid("only sources and IPTV travel with the account")
+			errs["plugin_id"] = invalid("only sources, IPTV and metadata travel with the account")
 		}
 		if label, ok := body["label"].(string); !ok || !isText(label) {
 			errs["label"] = invalid("a label is text")

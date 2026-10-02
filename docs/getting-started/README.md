@@ -1,8 +1,8 @@
 # Getting started
 
 Your own server is the account a household runs itself: the app's profiles,
-their PINs and preferences, and the household's sources and IPTV
-subscriptions — with their passwords — kept in step between its devices. It is
+their PINs and preferences, and the household's sources, IPTV subscriptions
+and metadata keys — with their passwords — kept in step between its devices. It is
 PocketBase, with the app's collections added.
 
 ## Run it

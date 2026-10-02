@@ -52,8 +52,9 @@ way that works: it pushes what changed, then reads all of it.
 - **`userId` is a profile.** The app calls its profiles users. On the server,
   `users` are accounts, and a record's `user` is the account that owns it; the
   collections call a profile `profile`.
-- **`pluginId` is `sources/*` or `iptv/*`**, never a player or a sync plugin:
-  only account-wide connections travel.
+- **`pluginId` is `sources/*`, `iptv/*` or `metadata/*`**, never a player or
+  a sync plugin: only account-wide connections travel. A metadata connection —
+  TMDB, with the household's own key — is one like a source's.
 - **`isAccountRecord`** checks every shape: the four digits, a known
   per-profile mode, field values that are text, a switch or a library
   selection, secrets only for names the record lists, at most

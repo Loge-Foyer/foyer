@@ -16,7 +16,8 @@ already have it — the address, the sign-in, your profile's home screen —
 without you typing a password again.
 
 Everything you set up in the app lives in your **account**: your profiles,
-their PINs and preferences, and the sources and IPTV subscriptions you added.
+their PINs and preferences, the sources and IPTV subscriptions you added — and
+a TMDB key, if you gave one — and what each profile follows, lists and watched.
 A device holds one account, and it lives in one of two places:
 
 - **On the device.** Nothing to run. To move it, export a backup file, or let
@@ -47,8 +48,8 @@ the other.
 
 ## What it will and will not do
 
-**Will:** keep each account's profiles, PINs, preferences, sources and IPTV
-subscriptions, with their passwords; hand them to every device signed in to
+**Will:** keep each account's profiles, PINs, preferences, sources, IPTV
+subscriptions and metadata keys, with their passwords; hand them to every device signed in to
 it; keep what one device deleted deleted on the others; hold an account to its
 profile limit — ten, unless you say otherwise; and let people in only with an
 invite you made, unless you open it.

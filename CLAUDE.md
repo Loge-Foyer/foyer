@@ -34,7 +34,7 @@ sign-in and sessions, plain-text credentials for now, invites, tenancy, the
 profile limit, backups, deployment. Change one there first.
 
 **Credentials are plain text on this server, for now.** Source and IPTV
-passwords sit in `secrets` as typed; the account password is PocketBase's
+passwords, and a metadata adapter's key, sit in `secrets` as typed; the account password is PocketBase's
 bcrypt hash. So `pb_data`, its backups and a superuser login are as sensitive
 as every password the household uses. Say so wherever it matters, and never
 quietly weaken TLS, the dashboard's privacy or how backups are kept.
