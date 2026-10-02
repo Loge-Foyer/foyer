@@ -99,6 +99,15 @@ func (h *harness) call(method, path, token string, body any) answer {
 	return result
 }
 
+// fetch answers a GET as it was sent, for what is not JSON. It asks for no
+// compression, so the body is what the dashboard's routes serve.
+func (h *harness) fetch(path string) (int, http.Header, []byte) {
+	h.t.Helper()
+	recorder := httptest.NewRecorder()
+	h.mux.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+	return recorder.Code, recorder.Header(), recorder.Body.Bytes()
+}
+
 // account is one signed-up account and a session for it.
 type account struct {
 	id, token, name string

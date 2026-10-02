@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"foyer/internal/config"
+	"foyer/internal/dashboard"
 	"foyer/internal/hooks"
 	"foyer/internal/routes"
 )
@@ -24,6 +25,12 @@ func Bind(app core.App, cfg config.Config) {
 			return err
 		}
 		routes.Register(se, cfg)
+		// Read by PocketBase's own handler for UI extensions, which runs last.
+		extension, err := dashboard.Extension()
+		if err != nil {
+			return err
+		}
+		se.UIExtensions = append(se.UIExtensions, extension)
 		return se.Next()
 	})
 }

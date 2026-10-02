@@ -30,8 +30,8 @@ appears below. `docs/deployment` has the settings, TLS and backups.
 
 ## The superuser
 
-The dashboard, at `http://localhost:8090/_/`, needs a superuser: the server's
-administrator. Either of these makes it:
+The dashboard, at `http://localhost:8090/_/` and wearing Foyer's icon, needs
+a superuser: the server's administrator. Either of these makes it:
 
 - `FOYER_ADMIN_EMAIL` and `FOYER_ADMIN_PASSWORD` in `.env`, before the first start
 - `go run . superuser upsert you@example.com 'a long password'`

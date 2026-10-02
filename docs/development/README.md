@@ -30,6 +30,13 @@ go build -o foyer .       # one static binary
   itself under `go run`, and it prints every SQL statement to stdout — which
   buried the code `invite` prints, the one line a script reads. `main.go`
   keeps it off by default; `go run . serve --dev` still shows the statements.
+- **The dashboard wears Foyer's icon.** `internal/dashboard` is a PocketBase
+  UI extension, embedded in the binary. Its `main.js` is folded into
+  `/_/extensions.js`, and its icon is served at
+  `/_/extensions/foyer/icon.png`. The API is experimental in v0.40, and a
+  test fails when the dashboard stops reading what it sets.
+  - Outside `--dev`, `/_/` and its extensions are cached for two weeks. A
+    changed icon shows after a hard reload, or in a fresh browser profile.
 
 ## The version
 

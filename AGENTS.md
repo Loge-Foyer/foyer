@@ -109,6 +109,7 @@ internal/routes/     GET /api/foyer/info, POST /api/foyer/sign-up
 internal/version/    the version, always the app's: its `npm run release` moves both
 internal/invites/    codes, their hashes, and the invite command
 internal/server/     Bind: the hooks, the routes, the trusted proxy and no installer — and the HTTP tests
+internal/dashboard/  the dashboard's icon: a PocketBase UI extension, embedded
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
 migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels; 7 watch progress and the account's settings; 8 Foyer's name, and the sign-up rule's label
 harness/             Node + vitest, test-only: the real plugin against the real binary
@@ -158,6 +159,12 @@ dashboard at `/_/`, backups and the rate limiter.
   are for people reading the dashboard.
 - **PocketBase is pinned.** It is pre-1.0, and minor versions break its Go API.
   Update deliberately, one version at a time, with the Go tests.
+- **The dashboard wears Foyer's icon through a UI extension**, which
+  PocketBase marks experimental (`core.ServeEvent.UIExtensions`).
+  `internal/dashboard` sets the dashboard's `favicon`, `mainLogo` and
+  `headerLogo`. A test checks that PocketBase's bundled dashboard still reads
+  them, so an upgrade that renames them fails instead of quietly showing
+  PocketBase's icon again.
 
 ## Current state
 
