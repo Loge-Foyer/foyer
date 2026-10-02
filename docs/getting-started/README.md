@@ -31,11 +31,13 @@ appears below. `docs/deployment` has the settings, TLS and backups.
 ## The superuser
 
 The dashboard, at `http://localhost:8090/_/`, needs a superuser: the server's
-administrator. Any one of these makes it:
+administrator. Either of these makes it:
 
 - `FOYER_ADMIN_EMAIL` and `FOYER_ADMIN_PASSWORD` in `.env`, before the first start
 - `go run . superuser upsert you@example.com 'a long password'`
-- the link PocketBase prints when it starts without one
+
+Foyer never opens a browser to ask for one, as plain PocketBase does when it
+starts without a superuser.
 
 A superuser sees everything the server holds, every source password included.
 Keep that login to yourself.

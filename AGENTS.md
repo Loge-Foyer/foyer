@@ -81,6 +81,11 @@ The client's reconciliation (`docs/protocol`) rests on these:
   in memory. Never add a count per username: anyone who knows one could keep
   its owner out.
 - **Store media.**
+- **Open a browser.** PocketBase opens a tab to make the first superuser
+  whenever `serve` starts without one — on whoever started it, and once per
+  test in the harness. `Bind` turns its installer off; the superuser comes
+  from `FOYER_ADMIN_*` or `superuser upsert`. A test app skips the installer
+  by itself, so the test that holds this arms it again first.
 
 ## Skills
 
@@ -102,7 +107,7 @@ internal/records/    the kinds and their collections, the derived id, Validate �
 internal/hooks/      no guests, every write judged, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
 internal/routes/     GET /api/foyer/info, POST /api/foyer/sign-up
 internal/invites/    codes, their hashes, and the invite command
-internal/server/     Bind: the hooks, the routes and the trusted proxy — and the HTTP tests
+internal/server/     Bind: the hooks, the routes, the trusted proxy and no installer — and the HTTP tests
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
 migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels; 7 watch progress and the account's settings; 8 Foyer's name, and the sign-up rule's label
 harness/             Node + vitest, test-only: the real plugin against the real binary

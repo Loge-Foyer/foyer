@@ -15,6 +15,11 @@ import (
 func Bind(app core.App, cfg config.Config) {
 	hooks.Register(app, cfg)
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Never PocketBase's installer: on a server with no superuser it opens a
+		// browser tab on whoever started it — one per test in the harness. The
+		// first superuser comes from FOYER_ADMIN_EMAIL and FOYER_ADMIN_PASSWORD,
+		// or from `superuser upsert`.
+		se.InstallerFunc = nil
 		if err := trustProxy(se.App, cfg); err != nil {
 			return err
 		}

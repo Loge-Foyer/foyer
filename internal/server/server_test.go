@@ -9,13 +9,44 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 
 	"foyer/internal/config"
 	"foyer/internal/fixtures"
 	"foyer/internal/invites"
 	"foyer/internal/records"
+	"foyer/internal/server"
 )
+
+func TestNeverOpensTheInstaller(t *testing.T) {
+	app, err := tests.NewTestAppWithConfig(core.BaseAppConfig{DataDir: t.TempDir(), EncryptionEnv: "pb_test_env"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Cleanup)
+	// A test app skips PocketBase's installer by itself, first of all. Arm it
+	// again, as `serve` does, so that only Bind can skip it.
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		e.InstallerFunc = apis.DefaultInstallerFunc
+		return e.Next()
+	})
+	server.Bind(app, config.Config{MaxProfiles: config.DefaultMaxProfiles, SignUp: config.SignUpInvite})
+	router, err := apis.NewRouter(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serve := &core.ServeEvent{App: app, Router: router}
+	if err := app.OnServe().Trigger(serve, func(e *core.ServeEvent) error {
+		if e.InstallerFunc != nil {
+			t.Error("the installer would open a browser tab")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestTheServerIsFoyer(t *testing.T) {
 	h := start(t, options{})
