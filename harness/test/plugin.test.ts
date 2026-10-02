@@ -2,7 +2,7 @@
 // real binary. The Go tests prove the server's rules by calling its API; this
 // proves the plugin and the server agree on every one of them.
 import { connectionId, pluginId, recordKey, userId, type AccountRecord, type ConnectionId, type UserId } from '@loge/api';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, inject, it } from 'vitest';
 
 import { device, SIGN_IN, type Device } from './support/host';
 import { startServer, type Server, type ServerOptions } from './support/server';
@@ -98,7 +98,7 @@ describe('the real plugin against the real server', () => {
     const server = await serve();
     const a = await device(server, { name: 'a', username: 'sam', password: PASSWORD });
     // Read without a session: the limit and how the server takes accounts.
-    expect(await a.account.info()).toEqual({ serverVersion: expect.any(String), maxProfiles: 10, signUp: 'invite' });
+    expect(await a.account.info()).toEqual({ serverVersion: inject('appVersion'), maxProfiles: 10, signUp: 'invite' });
     const created = await a.account.createAccount?.({ invite: await server.invite() }, { firstProfile: false });
     expect(created).toMatchObject({ accountName: expect.stringContaining('sam on ') });
 

@@ -13,6 +13,7 @@ import (
 	"foyer/internal/config"
 	"foyer/internal/invites"
 	"foyer/internal/server"
+	"foyer/internal/version"
 	_ "foyer/migrations"
 )
 
@@ -29,6 +30,7 @@ func main() {
 	// every SQL statement to stdout, and so buries the one line a script reads
 	// from `invite`. It is there for the asking: --dev.
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDev: false})
+	app.RootCmd.Version = version.Version
 	// The migrations own the collections: none is ever written from the dashboard.
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{Automigrate: false})
 	server.Bind(app, cfg)

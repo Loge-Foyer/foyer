@@ -16,17 +16,15 @@ import (
 	"foyer/internal/config"
 	"foyer/internal/invites"
 	"foyer/internal/records"
+	"foyer/internal/version"
 )
-
-// Version is what `info` answers as the server's version.
-const Version = "0.2.0"
 
 func Register(se *core.ServeEvent, cfg config.Config) {
 	// Without a session: the app reads the limit, and whether to offer
 	// "Create an account", before anyone signs in.
 	se.Router.GET("/api/foyer/info", func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, map[string]any{
-			"serverVersion": Version,
+			"serverVersion": version.Version,
 			"maxProfiles":   cfg.MaxProfiles,
 			"signUp":        cfg.SignUp,
 		})

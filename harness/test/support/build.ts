@@ -11,6 +11,7 @@ import type { TestProject } from 'vitest/node';
 declare module 'vitest' {
   export interface ProvidedContext {
     readonly binary: string;
+    readonly appVersion: string;
   }
 }
 

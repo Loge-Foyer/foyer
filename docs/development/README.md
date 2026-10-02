@@ -31,6 +31,15 @@ go build -o foyer .       # one static binary
   buried the code `invite` prints, the one line a script reads. `main.go`
   keeps it off by default; `go run . serve --dev` still shows the statements.
 
+## The version
+
+`internal/version/version.go` is Foyer's version, and it is always Loge's:
+`YEAR.MONTH.BUILD`, where `BUILD` counts every release of the pair and never
+starts again. The app's `npm run release` moves both, and refuses when they
+disagree; the harness fails when the server answers another version than the
+app's `package.json`. `info` answers it, and `foyer --version` prints it.
+`../loge/docs/development` has the whole scheme.
+
 ## Migrations
 
 `migrations/` holds the schema, as Go, in numbered files. PocketBase applies

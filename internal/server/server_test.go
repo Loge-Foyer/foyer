@@ -18,6 +18,7 @@ import (
 	"foyer/internal/invites"
 	"foyer/internal/records"
 	"foyer/internal/server"
+	"foyer/internal/version"
 )
 
 func TestNeverOpensTheInstaller(t *testing.T) {
@@ -63,7 +64,7 @@ func TestTheServerIsFoyer(t *testing.T) {
 func TestInfoNeedsNoSession(t *testing.T) {
 	h := start(t, options{cfg: config.Config{MaxProfiles: 4, SignUp: config.SignUpInvite}})
 	got := h.call(http.MethodGet, "/api/foyer/info", "", nil)
-	if got.status != http.StatusOK || got.body["maxProfiles"] != float64(4) || got.body["signUp"] != "invite" || got.body["serverVersion"] == "" {
+	if got.status != http.StatusOK || got.body["maxProfiles"] != float64(4) || got.body["signUp"] != "invite" || got.body["serverVersion"] != version.Version {
 		t.Fatalf("info: %d %v", got.status, got.body)
 	}
 }

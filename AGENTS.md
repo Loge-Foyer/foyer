@@ -106,6 +106,7 @@ internal/config/     FOYER_MAX_PROFILES, FOYER_SIGNUP, FOYER_ADMIN_*, FOYER_TRUS
 internal/records/    the kinds and their collections, the derived id, Validate — isAccountRecord's judgement
 internal/hooks/      no guests, every write judged, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
 internal/routes/     GET /api/foyer/info, POST /api/foyer/sign-up
+internal/version/    the version, always the app's: its `npm run release` moves both
 internal/invites/    codes, their hashes, and the invite command
 internal/server/     Bind: the hooks, the routes, the trusted proxy and no installer — and the HTTP tests
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them

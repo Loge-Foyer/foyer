@@ -5,6 +5,7 @@ import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } f
 
 import { connectionId, TransportError, type ConnectedAccount, type HttpClient, type PluginContext, type PluginCrypto } from '@loge/api';
 import { plugin } from '@loge/sync-custom-server';
+import { inject } from 'vitest';
 
 import type { Server } from './server';
 
@@ -106,7 +107,7 @@ export async function device(
       },
     },
     network: { current: () => 'wifi' },
-    client: { appName: 'Loge', appVersion: '1.0.0', deviceName: options.name, installationId: `account|sync/custom-server|${options.name}` },
+    client: { appName: 'Loge', appVersion: inject('appVersion'), deviceName: options.name, installationId: `account|sync/custom-server|${options.name}` },
     clock: { now: () => Date.now(), sleep: async () => undefined },
     crypto: nodeHostCrypto(),
   };
