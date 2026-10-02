@@ -1,5 +1,5 @@
 pb_data/
-/streaming-center-sync
+/foyer
 harness/node_modules/
 .env
 .env.*

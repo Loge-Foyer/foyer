@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"streaming-center-sync/internal/records"
+	"foyer/internal/records"
 )
 
 type Invalid struct {
@@ -34,7 +34,7 @@ type Fixtures struct {
 // sits beside this one: the adapters moved in with Phase 9.
 func Load() (Fixtures, error) {
 	_, here, _, _ := runtime.Caller(0)
-	path := filepath.Join(filepath.Dir(here), "..", "..", "..", "streaming_center_app", "adapters", "api", "fixtures", "account-records.json")
+	path := filepath.Join(filepath.Dir(here), "..", "..", "..", "loge", "adapters", "api", "fixtures", "account-records.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return Fixtures{}, err

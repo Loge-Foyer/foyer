@@ -2,14 +2,14 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
-// The same aliases as tsconfig: one @sc/api, and the adapter the app ships, both from source.
-const source = (path: string) => fileURLToPath(new URL(`../../streaming_center_app/adapters/${path}`, import.meta.url));
+// The same aliases as tsconfig: one @loge/api, and the adapter the app ships, both from source.
+const source = (path: string) => fileURLToPath(new URL(`../../loge/adapters/${path}`, import.meta.url));
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@sc/api': source('api/src/index.ts'),
-      '@sc/sync-custom-server': source('sync/custom-server/src/index.ts'),
+      '@loge/api': source('api/src/index.ts'),
+      '@loge/sync-custom-server': source('sync/custom-server/src/index.ts'),
     },
   },
   test: {

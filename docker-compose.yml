@@ -1,19 +1,23 @@
-# Your own server, and its data in a volume of its own.
+# Foyer, your own server, and its data in a volume of its own.
 #
 #   cp .env.example .env
 #   docker compose up -d
-#   docker compose exec sync streaming-center-sync invite
+#   docker compose exec foyer foyer invite
+
+# Named, so its volume is foyer_pb_data wherever this folder is checked out.
+name: foyer
+
 services:
-  sync:
+  foyer:
     build: .
-    image: streaming-center-sync
+    image: foyer
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
     ports:
       # 127.0.0.1:8090:8090 when a reverse proxy on this host is the way in.
-      - "${SC_PUBLISH:-8090}:8090"
+      - "${FOYER_PUBLISH:-8090}:8090"
     volumes:
       # A local volume: SQLite's locking is not safe on NFS or SMB.
       - pb_data:/pb_data

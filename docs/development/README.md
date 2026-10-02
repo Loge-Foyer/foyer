@@ -7,7 +7,7 @@ go run . superuser upsert you@example.com 'a long password'
 go test ./...                     # every Go test
 go vet ./... && gofmt -l .        # nothing to report
 (cd harness && npm install && npm test)   # the real plugin against the real binary
-go build -o streaming-center-sync .       # one static binary
+go build -o foyer .       # one static binary
 ```
 
 ## Go and PocketBase
@@ -24,8 +24,8 @@ go build -o streaming-center-sync .       # one static binary
 - **`go run . serve`** keeps its data in `./pb_data`, in the working directory;
   a built binary keeps it beside itself, and `--dir` puts it anywhere. Delete
   `pb_data` to start again from nothing.
-- **`.env`** is read when the server starts: `SC_MAX_PROFILES`, `SC_SIGNUP`,
-  `SC_ADMIN_EMAIL`, `SC_ADMIN_PASSWORD`, `SC_TRUST_PROXY`.
+- **`.env`** is read when the server starts: `FOYER_MAX_PROFILES`, `FOYER_SIGNUP`,
+  `FOYER_ADMIN_EMAIL`, `FOYER_ADMIN_PASSWORD`, `FOYER_TRUST_PROXY`.
 - **Dev mode is off unless asked for** (`--dev`). PocketBase turns it on by
   itself under `go run`, and it prints every SQL statement to stdout — which
   buried the code `invite` prints, the one line a script reads. `main.go`
@@ -49,7 +49,7 @@ data directory, with the migrations applied:
 
 - **Rules:** two users never see each other's records; a write naming another
   user is refused; a guest gets `401`, never an empty list.
-- **Sign-up:** each `SC_SIGNUP` mode; an invite used once, and expiring;
+- **Sign-up:** each `FOYER_SIGNUP` mode; an invite used once, and expiring;
   `firstProfile` makes a profile named after the account; a public create of a
   user is refused.
 - **The hooks:** the limit counts only live profiles; an un-delete of a
@@ -65,7 +65,7 @@ data directory, with the migrations applied:
 binary once, starts it for each test on a temporary directory and a free
 port — with the rate limits on, as in production — and drives the real
 `sync/custom-server` plugin, aliased to its source in
-`../streaming_center_app/adapters` and never installed, over a Node host: `fetch`,
+`../loge/adapters` and never installed, over a Node host: `fetch`,
 node:crypto, and a session store that outlives a provider. It counts the
 sign-ins each device makes:
 
@@ -87,7 +87,7 @@ It is the one place TypeScript touches this repository, and its `AGENTS.md`
 says so. Nothing the server ships comes from it.
 
 **The shared fixtures** are
-`../streaming_center_app/adapters/api/fixtures/account-records.json`: records every
+`../loge/adapters/api/fixtures/account-records.json`: records every
 side must accept, and records every side must refuse, each with its reason.
 The api's tests judge them with `isAccountRecord`; the Go tests map each to its
 collection, as the plugin does, and expect the same verdict. A change to the

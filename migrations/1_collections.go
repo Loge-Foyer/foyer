@@ -10,7 +10,7 @@ import (
 	m "github.com/pocketbase/pocketbase/migrations"
 	"github.com/pocketbase/pocketbase/tools/types"
 
-	"streaming-center-sync/internal/records"
+	"foyer/internal/records"
 )
 
 // The account's five collections, and the invites.

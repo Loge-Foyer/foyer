@@ -11,10 +11,10 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/records"
-	"streaming-center-sync/internal/server"
-	_ "streaming-center-sync/migrations"
+	"foyer/internal/config"
+	"foyer/internal/records"
+	"foyer/internal/server"
+	_ "foyer/migrations"
 )
 
 // harness is the server on a temporary data directory: PocketBase with this
@@ -110,7 +110,7 @@ func (h *harness) signUp(name string, extra map[string]any) account {
 	for key, value := range extra {
 		body[key] = value
 	}
-	got := h.call(http.MethodPost, "/api/sc/sign-up", "", body)
+	got := h.call(http.MethodPost, "/api/foyer/sign-up", "", body)
 	if got.status != http.StatusOK {
 		h.t.Fatalf("sign-up of %s: %d %v", name, got.status, got.body)
 	}

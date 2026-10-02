@@ -32,14 +32,14 @@ const SUPERUSER = { email: 'owner@example.com', password: 'the dashboard passwor
 
 export async function startServer(options: ServerOptions = {}): Promise<Server> {
   const binary = inject('binary');
-  const directory = mkdtempSync(join(tmpdir(), 'sc-harness-'));
+  const directory = mkdtempSync(join(tmpdir(), 'foyer-harness-'));
   const data = join(directory, 'pb_data');
-  // Nothing from the shell that runs the tests: its SC_* would change the server under test.
+  // Nothing from the shell that runs the tests: its FOYER_* would change the server under test.
   const env = {
     PATH: process.env.PATH ?? '',
     HOME: directory,
-    ...(options.maxProfiles === undefined ? {} : { SC_MAX_PROFILES: String(options.maxProfiles) }),
-    ...(options.signUp === undefined ? {} : { SC_SIGNUP: options.signUp }),
+    ...(options.maxProfiles === undefined ? {} : { FOYER_MAX_PROFILES: String(options.maxProfiles) }),
+    ...(options.signUp === undefined ? {} : { FOYER_SIGNUP: options.signUp }),
   };
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;

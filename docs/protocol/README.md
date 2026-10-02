@@ -1,8 +1,8 @@
 # Account protocol
 
 The protocol as the client speaks it. The app reaches your own server through
-the `sync/custom-server` adapter's `ConnectedAccount` (`@sc/api`, in
-`streaming_center_app/adapters/api/src/account.ts`); this server is the other end,
+the `sync/custom-server` adapter's `ConnectedAccount` (`@loge/api`, in
+`loge/adapters/api/src/account.ts`); this server is the other end,
 and the harness here drives that plugin against the real binary. The
 development-only `sync/mock` plugin plays a pretend PocketBase in memory, and
 the app's tests run two devices against a fake one on every pair of database
@@ -144,7 +144,7 @@ push(records) →
 - **One transaction.** Every write in the batch is stored, or none is.
   `stored` means all of it is on disk.
 - **A refusal names the write that stopped it**, by its place in the batch:
-  - `limit` — a new live profile beyond `SC_MAX_PROFILES`; deleted ones do not
+  - `limit` — a new live profile beyond `FOYER_MAX_PROFILES`; deleted ones do not
     count
   - `deleted` — a write that would bring back a deleted profile or connection
   - `invalid` — anything else the rules refuse: a malformed record, one naming
@@ -281,11 +281,11 @@ did, is a later option; git keeps that code.
 
 | Call | Routes |
 | --- | --- |
-| `info` | `GET /api/sc/info` |
+| `info` | `GET /api/foyer/info` |
 | `status`, and signing in again | `POST /api/collections/users/auth-with-password` |
 | each sync, first | `POST /api/collections/users/auth-refresh` |
 | `pull` | `GET /api/collections/{collection}/records` for each of the five, paged by `id` |
 | `push` | `POST /api/batch`: one upsert per record, `PUT /api/collections/{collection}/records` with its `id` |
 | `verifyOwner` | `POST /api/collections/users/auth-with-password`, with the password typed again |
-| `createAccount` | `POST /api/sc/sign-up` |
+| `createAccount` | `POST /api/foyer/sign-up` |
 | `signOut` | none: the device forgets its token |

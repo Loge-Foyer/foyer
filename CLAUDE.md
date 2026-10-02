@@ -1,11 +1,11 @@
-# CLAUDE.md — streaming_center_sync
+# CLAUDE.md — foyer
 
 Your own server: PocketBase, used as a Go framework — collections per user,
 invites, the profile limit.
 
 ## Reading protocol — before you plan, edit or run anything
 
-1. `../.claude/streaming-center-architecture.md`, especially §7 (the account
+1. `../.claude/architecture.md`, especially §7 (the account
    role), §9 (syncing with your own server), §10 (conflicts) and §17 (your own
    server). The server is the other end of that contract.
 2. `../CLAUDE.md` — how this repository and the app relate.

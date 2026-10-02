@@ -1,7 +1,7 @@
-# AGENTS.md — streaming_center_sync
+# AGENTS.md — foyer
 
 Your own server: PocketBase, used as a Go framework. Read the workspace root
-`AGENTS.md` and `../.claude/streaming-center-architecture.md` first — §7 (the
+`AGENTS.md` and `../.claude/architecture.md` first — §7 (the
 account role), §9 (syncing with your own server), §10 (conflicts) and §17
 (your own server).
 
@@ -15,10 +15,10 @@ collection and rule.
 A small server a household runs itself as its **account**: its profiles, their
 PINs and preferences, and its source and IPTV connections with their
 passwords, kept in step between its devices. Several accounts can share one
-server, each with up to `SC_MAX_PROFILES` profiles.
+server, each with up to `FOYER_MAX_PROFILES` profiles.
 
 It is the other end of the `sync/custom-server` adapter, which lives in
-`../streaming_center_app/adapters/sync/custom-server`. The adapter is the
+`../loge/adapters/sync/custom-server`. The adapter is the
 client; this is PocketBase, with the app's collections, rules and hooks.
 
 ## What this is not
@@ -35,12 +35,12 @@ client; this is PocketBase, with the app's collections, rules and hooks.
 
 ## Boundaries
 
-- **PocketBase and Go. Nothing from TypeScript.** Go cannot import `@sc/api`,
+- **PocketBase and Go. Nothing from TypeScript.** Go cannot import `@loge/api`,
   and nothing the server ships touches it.
 - **`api` states the contract.** `api/src/account.ts` is the record contract,
   and `api/fixtures/account-records.json` holds both sides to it: the api's
   tests and the Go tests read the same file. Change them together — the
-  contract in `../streaming_center_app/adapters/api` first, then the
+  contract in `../loge/adapters/api` first, then the
   collections and hooks here. `internal/fixtures/fixtures.go` reads that file
   by relative path, so it breaks loudly if either side moves.
 - **One exception, test-only:** `harness/` (Node, vitest) builds the binary and
@@ -61,7 +61,7 @@ The client's reconciliation (`docs/protocol`) rests on these:
    everything.
 3. **Deletes are soft**, the tombstone cleared of its payload, secrets
    included — and final for profiles and connections.
-4. **The profile limit:** no new live profile beyond `SC_MAX_PROFILES`.
+4. **The profile limit:** no new live profile beyond `FOYER_MAX_PROFILES`.
 5. **No hard deletes of account data**, but the cascade when a user is deleted.
 6. **A batch is all or nothing**, and a refusal names the write that stopped
    it.
@@ -86,7 +86,7 @@ The client's reconciliation (`docs/protocol`) rests on these:
 
 `.agents/skills/` in this repository:
 
-- **`sc-sync-protocol`** — the account protocol on the server: the collections
+- **`foyer-sync-protocol`** — the account protocol on the server: the collections
   and their rules, the hooks, the two routes, migrations, and what must stay
   true for the client's reconciliation.
 
@@ -97,14 +97,14 @@ The client's reconciliation (`docs/protocol`) rests on these:
 ```
 main.go              .env, then pocketbase.New(); migratecmd, automigrate off; server.Bind; the invite command
 go.mod               PocketBase pinned to v0.40.4, which needs Go 1.27
-internal/config/     SC_MAX_PROFILES, SC_SIGNUP, SC_ADMIN_*, SC_TRUST_PROXY, and the .env reader
+internal/config/     FOYER_MAX_PROFILES, FOYER_SIGNUP, FOYER_ADMIN_*, FOYER_TRUST_PROXY, and the .env reader; the old SC_* names refused
 internal/records/    the kinds and their collections, the derived id, Validate — isAccountRecord's judgement
 internal/hooks/      no guests, every write judged, the profile limit, deleted stays deleted, tombstones, no hard deletes, kept secrets
-internal/routes/     GET /api/sc/info, POST /api/sc/sign-up
+internal/routes/     GET /api/foyer/info, POST /api/foyer/sign-up
 internal/invites/    codes, their hashes, and the invite command
 internal/server/     Bind: the hooks, the routes and the trusted proxy — and the HTTP tests
 internal/fixtures/   test-only: the shared fixtures, written as the plugin sends them
-migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels; 7 watch progress and the account's settings
+migrations/          1 the collections and rules; 2 users; 3 batch and rate limits; 4 the superuser; 5 subscriptions and playlists; 6 favourite channels; 7 watch progress and the account's settings; 8 Foyer's name, and the sign-up rule's label
 harness/             Node + vitest, test-only: the real plugin against the real binary
 Dockerfile           two stages: a Go build, then the binary alone
 docker-compose.yml   the server, and pb_data in a volume
@@ -140,7 +140,10 @@ dashboard at `/_/`, backups and the rate limiter.
 - **The hooks hold for superusers.** The dashboard is a client of the same
   API: a record deleted there would read as lost and come back from the
   devices.
-- **`SC_TRUST_PROXY` only behind a proxy.** Without one, anyone can claim any
+- **The names from before Foyer are refused.** `SC_MAX_PROFILES` and the rest
+  became `FOYER_…`. Read silently, an old `.env` would drop its profile limit
+  and its proxy header, so `FromEnv` refuses to start and names the new one.
+- **`FOYER_TRUST_PROXY` only behind a proxy.** Without one, anyone can claim any
   address and slip the limiter. Behind one without it, every caller has the
   proxy's address, and one stranger's tries throttle the whole household.
 - **Two kinds of user.** PocketBase's `users` are accounts; the app's users are

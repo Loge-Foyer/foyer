@@ -14,11 +14,11 @@ server's. `protocol/` says what the calls mean.
 
 | Route | Body | Answer |
 | --- | --- | --- |
-| `GET /api/sc/info` | — | `{ serverVersion, maxProfiles, signUp }`, without a session |
-| `POST /api/sc/sign-up` | `{ username, password, invite?, firstProfile }` | PocketBase's sign-in answer, `{ token, record }`; `403` when sign-up is closed or the invite will not do; `400` with field errors |
+| `GET /api/foyer/info` | — | `{ serverVersion, maxProfiles, signUp }`, without a session |
+| `POST /api/foyer/sign-up` | `{ username, password, invite?, firstProfile }` | PocketBase's sign-in answer, `{ token, record }`; `403` when sign-up is closed or the invite will not do; `400` with field errors |
 
-- **`signUp`** is `invite`, `open` or `closed`, from `SC_SIGNUP`.
-  **`maxProfiles`** is `SC_MAX_PROFILES`.
+- **`signUp`** is `invite`, `open` or `closed`, from `FOYER_SIGNUP`.
+  **`maxProfiles`** is `FOYER_MAX_PROFILES`.
 - **`invite`** is needed when `signUp` is `invite`: a code from the `invite`
   command, typed any way — case, dashes and spaces do not matter, and `O`, `I`
   and `L` read as `0`, `1` and `1`. It is checked before anything else, so
@@ -134,10 +134,10 @@ closes that.
   empty — which a device would take for a server that lost everything. So
   every request on the data collections, and every batch, answers `401`
   without a valid session.
-- **The profile limit.** A new live profile beyond `SC_MAX_PROFILES` is
-  refused, `sc_limit`. Deleted profiles do not count.
+- **The profile limit.** A new live profile beyond `FOYER_MAX_PROFILES` is
+  refused, `foyer_limit`. Deleted profiles do not count.
 - **Deleted stays deleted.** An update that un-deletes a profile or a
-  connection is refused, `sc_deleted`.
+  connection is refused, `foyer_deleted`.
 - **A tombstone is cleared.** A write with `deleted: true` keeps `user`, `key`
   and the parents, and empties the rest, secrets included, whatever the body
   says.
@@ -170,18 +170,18 @@ The hooks hold for superusers too: the dashboard goes through the same API.
 **Inside a failed batch**, `data.requests.{index}.response` is the refused
 request's own error. The hooks name their reason as a field error's `code`:
 
-- `sc_limit` — the profile limit, on `user`
-- `sc_deleted` — a deleted profile or connection, on `deleted`
-- `sc_invalid` — a record the api would refuse, on the field at fault
+- `foyer_limit` — the profile limit, on `user`
+- `foyer_deleted` — a deleted profile or connection, on `deleted`
+- `foyer_invalid` — a record the api would refuse, on the field at fault
 
 ```json
 { "status": 400, "message": "Batch transaction failed.", "data": { "requests": { "3": {
   "code": "batch_request_failed", "message": "Batch request failed.",
-  "response": { "status": 400, "message": "…", "data": { "user": { "code": "sc_limit", "message": "…" } } }
+  "response": { "status": 400, "message": "…", "data": { "user": { "code": "foyer_limit", "message": "…" } } }
 } } } }
 ```
 
-Anything but `sc_limit` and `sc_deleted` is `invalid` to the plugin. A batch
+Anything but `foyer_limit` and `foyer_deleted` is `invalid` to the plugin. A batch
 that fails without naming a request — its time up, too many requests, the
 batch API off — stored nothing and judged nothing, and the plugin reads it as
 `backoff`.
@@ -191,4 +191,4 @@ batch API off — stored nothing and judged nothing, and the plugin reads it as
 PocketBase's rate limiter, switched on by the migrations, guards sign-in and
 sign-up; `docs/deployment` lists its rules. It counts per address, in memory, and never per account, so nobody
 who knows a username can keep its owner out. Behind a proxy it needs
-`SC_TRUST_PROXY` (`docs/deployment`).
+`FOYER_TRUST_PROXY` (`docs/deployment`).

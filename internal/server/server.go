@@ -7,9 +7,9 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/hooks"
-	"streaming-center-sync/internal/routes"
+	"foyer/internal/config"
+	"foyer/internal/hooks"
+	"foyer/internal/routes"
 )
 
 func Bind(app core.App, cfg config.Config) {
@@ -23,7 +23,7 @@ func Bind(app core.App, cfg config.Config) {
 	})
 }
 
-// trustProxy applies SC_TRUST_PROXY on every start, so `.env` stays the one
+// trustProxy applies FOYER_TRUST_PROXY on every start, so `.env` stays the one
 // place it is set. Without a proxy nothing is trusted: anyone could send the
 // header, and claim any address past the limiter.
 func trustProxy(app core.App, cfg config.Config) error {

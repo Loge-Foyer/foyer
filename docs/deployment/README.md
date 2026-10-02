@@ -4,7 +4,7 @@ Running the server for real: how it runs, where it keeps its data, how it is
 reached, how it is backed up, and how accounts are looked after.
 `getting-started` has the quick version.
 
-The binary is `streaming-center-sync`. In the image it is on the `PATH`, the
+The binary is `foyer`. In the image it is on the `PATH`, the
 data is `/pb_data`, and it listens on 8090. The Dockerfile and compose file
 are written and not yet built — Docker was not there when they were — so try
 them before you rely on them.
@@ -12,8 +12,8 @@ them before you rely on them.
 ## The binary
 
 ```bash
-CGO_ENABLED=0 go build -o streaming-center-sync .
-./streaming-center-sync serve --http=0.0.0.0:8090 --dir=/var/lib/streaming-center-sync
+CGO_ENABLED=0 go build -o foyer .
+./foyer serve --http=0.0.0.0:8090 --dir=/var/lib/foyer
 ```
 
 One file, with nothing to install beside it. `GOOS` and `GOARCH` build it for
@@ -25,20 +25,20 @@ launchd — and stop it with `SIGTERM`.
 ```bash
 cp .env.example .env
 docker compose up -d
-docker compose exec sync streaming-center-sync invite
+docker compose exec foyer foyer invite
 ```
 
 - The image is a two-stage Go build of this repository alone.
 - The data lives in the `pb_data` volume.
 - It listens on 8090, and reports its health from `/api/health`.
-- `docker compose exec sync streaming-center-sync …` runs any command —
+- `docker compose exec foyer foyer …` runs any command —
   `invite`, `superuser`, `migrate` — beside the running server.
 
 Without compose:
 
 ```bash
-docker build -t streaming-center-sync .
-docker run -d --name sync -p 8090:8090 -v pb_data:/pb_data --env-file .env streaming-center-sync
+docker build -t foyer .
+docker run -d --name foyer -p 8090:8090 -v pb_data:/pb_data --env-file .env foyer
 ```
 
 ## Settings
@@ -48,10 +48,14 @@ container.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `SC_MAX_PROFILES` | `10` | Profiles an account may hold. The app reads it from the server. Lowering it removes nothing: an account over it keeps its profiles, and adds none. |
-| `SC_SIGNUP` | `invite` | `invite`, `open` or `closed` (`getting-started`). |
-| `SC_ADMIN_EMAIL`, `SC_ADMIN_PASSWORD` | — | The first superuser, made on the first start. Take the password out of `.env` once it exists; `superuser update` changes it later. |
-| `SC_TRUST_PROXY` | — | Behind a reverse proxy: the header it puts the caller's address in, such as `X-Forwarded-For`. Never without a proxy (below). |
+| `FOYER_MAX_PROFILES` | `10` | Profiles an account may hold. The app reads it from the server. Lowering it removes nothing: an account over it keeps its profiles, and adds none. |
+| `FOYER_SIGNUP` | `invite` | `invite`, `open` or `closed` (`getting-started`). |
+| `FOYER_ADMIN_EMAIL`, `FOYER_ADMIN_PASSWORD` | — | The first superuser, made on the first start. Take the password out of `.env` once it exists; `superuser update` changes it later. |
+| `FOYER_TRUST_PROXY` | — | Behind a reverse proxy: the header it puts the caller's address in, such as `X-Forwarded-For`. Never without a proxy (below). |
+
+Until 2026.10.1 these were `SC_…`. A server started with an old name refuses
+to start and says the new one, rather than quietly running without its limit
+or its proxy header.
 
 And PocketBase's own flags, after `serve`:
 
@@ -83,7 +87,7 @@ shows them. Leave them as they are: they are set for what the app needs.
   A batch's writes each pass the limiter. Without rules of their own they fall
   to the last one, and a large upload would fail half-way.
 
-`SC_TRUST_PROXY` is not a setting the migrations write: the server applies it
+`FOYER_TRUST_PROXY` is not a setting the migrations write: the server applies it
 on every start, so `.env` stays the one place it is set.
 
 ## Storage
@@ -119,7 +123,7 @@ sync.example.com {
 
 - Start the server with `--http=127.0.0.1:8090`, or publish it with compose on
   `127.0.0.1:8090:8090`, so the proxy is the only way in.
-- Set `SC_TRUST_PROXY=X-Forwarded-For`.
+- Set `FOYER_TRUST_PROXY=X-Forwarded-For`.
 - The dashboard stays off the proxy. Reach it on the machine itself, or
   through a tunnel: `ssh -L 8090:127.0.0.1:8090 you@server`, then
   `http://localhost:8090/_/`.
@@ -131,7 +135,7 @@ A base path works for the app too, since it keeps one typed into the address:
 ### Its own certificates
 
 ```bash
-./streaming-center-sync serve sync.example.com
+./foyer serve sync.example.com
 ```
 
 PocketBase gets a certificate from Let's Encrypt, keeps it in `pb_data`, and
@@ -147,7 +151,7 @@ The app runs on the web from a secure page, so a browser can reach only an
 
 The rate limiter counts per address, and the superusers' allowed addresses
 (below) go by address too. PocketBase takes the address from the connection,
-unless `SC_TRUST_PROXY` names a header to take it from.
+unless `FOYER_TRUST_PROXY` names a header to take it from.
 
 - **Behind a proxy, set it.** Otherwise every caller has the proxy's address:
   one stranger's tries throttle the whole household, and an address allowed
@@ -165,10 +169,10 @@ every source password, in plain text.
 
 - **Keep it off the proxy**, as above.
 - **Allow superusers only from your own network:** in the dashboard's
-  settings, or with `streaming-center-sync superuser ips 192.168.1.0/24`. The
+  settings, or with `foyer superuser ips 192.168.1.0/24`. The
   command writes the settings to the database, and a running server keeps its
   own copy: restart it afterwards. Behind a proxy, this works only with
-  `SC_TRUST_PROXY`.
+  `FOYER_TRUST_PROXY`.
 - **A long superuser password**, and none left in `.env`.
 - **Never change the app's collections, rules or settings there.** The
   migrations own them, and a rule loosened by hand opens one household's data

@@ -5,7 +5,7 @@ import (
 	m "github.com/pocketbase/pocketbase/migrations"
 	"github.com/pocketbase/pocketbase/tools/types"
 
-	"streaming-center-sync/internal/records"
+	"foyer/internal/records"
 )
 
 // Watch progress the app keeps, for sources that keep none — IPTV films and

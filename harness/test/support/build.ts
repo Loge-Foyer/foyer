@@ -17,8 +17,8 @@ declare module 'vitest' {
 const repository = fileURLToPath(new URL('../../..', import.meta.url));
 
 export default function setup(project: TestProject) {
-  const directory = mkdtempSync(join(tmpdir(), 'sc-harness-build-'));
-  const binary = join(directory, 'streaming-center-sync');
+  const directory = mkdtempSync(join(tmpdir(), 'foyer-harness-build-'));
+  const binary = join(directory, 'foyer');
   execFileSync('go', ['build', '-o', binary, '.'], { cwd: repository, stdio: 'inherit' });
   project.provide('binary', binary);
   return () => rmSync(directory, { recursive: true, force: true });

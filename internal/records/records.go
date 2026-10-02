@@ -391,7 +391,7 @@ func isIDMap(ids map[string]any) bool {
 }
 
 func invalid(message string) validation.Error {
-	return validation.NewError("sc_invalid", message)
+	return validation.NewError("foyer_invalid", message)
 }
 
 // utf16Len measures as JavaScript's `length` does.

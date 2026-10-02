@@ -4,15 +4,15 @@ import (
 	"strings"
 	"testing"
 
-	"streaming-center-sync/internal/fixtures"
-	"streaming-center-sync/internal/records"
+	"foyer/internal/fixtures"
+	"foyer/internal/records"
 )
 
 func load(t *testing.T) fixtures.Fixtures {
 	t.Helper()
 	f, err := fixtures.Load()
 	if err != nil {
-		t.Fatalf("the shared fixtures sit in the plugins repository beside this one: %v", err)
+		t.Fatalf("the shared fixtures sit in the app's repository beside this one: %v", err)
 	}
 	return f
 }

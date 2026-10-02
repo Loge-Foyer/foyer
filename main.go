@@ -10,10 +10,10 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/invites"
-	"streaming-center-sync/internal/server"
-	_ "streaming-center-sync/migrations"
+	"foyer/internal/config"
+	"foyer/internal/invites"
+	"foyer/internal/server"
+	_ "foyer/migrations"
 )
 
 func main() {

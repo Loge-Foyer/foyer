@@ -3,8 +3,8 @@
 // the network through fetch, every exchange recorded.
 import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from 'node:crypto';
 
-import { connectionId, TransportError, type ConnectedAccount, type HttpClient, type PluginContext, type PluginCrypto } from '@sc/api';
-import { plugin } from '@sc/sync-custom-server';
+import { connectionId, TransportError, type ConnectedAccount, type HttpClient, type PluginContext, type PluginCrypto } from '@loge/api';
+import { plugin } from '@loge/sync-custom-server';
 
 import type { Server } from './server';
 
@@ -106,7 +106,7 @@ export async function device(
       },
     },
     network: { current: () => 'wifi' },
-    client: { appName: 'Streaming Center', appVersion: '1.0.0', deviceName: options.name, installationId: `account|sync/custom-server|${options.name}` },
+    client: { appName: 'Loge', appVersion: '1.0.0', deviceName: options.name, installationId: `account|sync/custom-server|${options.name}` },
     clock: { now: () => Date.now(), sleep: async () => undefined },
     crypto: nodeHostCrypto(),
   };

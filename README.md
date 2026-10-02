@@ -1,4 +1,4 @@
-# Streaming Center — your own server
+# Foyer — your own server
 
 A small server you run yourself, so your household's account — its profiles,
 their settings, and your sources with their passwords — follows you between
@@ -86,4 +86,4 @@ Docker was not there.
 collections, deployment and development.
 
 The full architecture is in
-[`../.claude/streaming-center-architecture.md`](../.claude/streaming-center-architecture.md).
+[`../.claude/architecture.md`](../.claude/architecture.md).

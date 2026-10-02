@@ -13,9 +13,9 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/invites"
-	"streaming-center-sync/internal/records"
+	"foyer/internal/config"
+	"foyer/internal/invites"
+	"foyer/internal/records"
 )
 
 // Version is what `info` answers as the server's version.
@@ -24,14 +24,14 @@ const Version = "0.2.0"
 func Register(se *core.ServeEvent, cfg config.Config) {
 	// Without a session: the app reads the limit, and whether to offer
 	// "Create an account", before anyone signs in.
-	se.Router.GET("/api/sc/info", func(e *core.RequestEvent) error {
+	se.Router.GET("/api/foyer/info", func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, map[string]any{
 			"serverVersion": Version,
 			"maxProfiles":   cfg.MaxProfiles,
 			"signUp":        cfg.SignUp,
 		})
 	})
-	se.Router.POST("/api/sc/sign-up", signUp(cfg))
+	se.Router.POST("/api/foyer/sign-up", signUp(cfg))
 }
 
 type signUpBody struct {

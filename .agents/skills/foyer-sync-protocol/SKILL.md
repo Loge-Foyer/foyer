@@ -1,11 +1,11 @@
 ---
-name: sc-sync-protocol
+name: foyer-sync-protocol
 description: The account protocol on the server side — the PocketBase collections and their owner rules, the hooks (no guests, the profile limit, deleted stays deleted, no hard deletes, tombstones cleared, listed secrets kept), the two routes, migrations, and what must stay true for the client's reconciliation. Use when adding or changing a collection, field, rule, hook, route or migration in the sync server, or when debugging what a device reads or pushes.
 ---
 
 # The account protocol, server side
 
-Read `../.claude/streaming-center-architecture.md` §7 (the account role), §9
+Read `../.claude/architecture.md` §7 (the account role), §9
 (syncing with your own server), §10 (conflicts) and §17 (your own server);
 then `docs/protocol/README.md`, the protocol as the client speaks it, and
 `docs/api/README.md`. The server is the other end of `ConnectedAccount` in
@@ -53,10 +53,10 @@ Traps in PocketBase's own field rules:
 - **No guests.** PocketBase takes a missing, expired or invalid token for a
   guest, and a guest's list is empty under the owner rules. Every request on
   account data, and every batch, answers `401` without a valid session.
-- **The profile limit.** A new live profile beyond `SC_MAX_PROFILES` is
-  refused, `sc_limit`. Deleted profiles do not count.
+- **The profile limit.** A new live profile beyond `FOYER_MAX_PROFILES` is
+  refused, `foyer_limit`. Deleted profiles do not count.
 - **Deleted stays deleted** for profiles and connections: an un-delete is
-  refused, `sc_deleted`. PINs, preferences and per-profile values may be
+  refused, `foyer_deleted`. PINs, preferences and per-profile values may be
   deleted and set again.
 - **Tombstones are cleared**: a write with `deleted: true` keeps `user`, `key`
   and the parents, and empties the rest, secrets included.
@@ -66,7 +66,7 @@ Traps in PocketBase's own field rules:
   keeps its stored value; a name dropped from the list drops its value.
 - **Every write is judged** as `isAccountRecord` judges a record — a batch's
   writes as sent, and every write as it is about to be stored — by
-  `records.Validate`. A refusal is `sc_invalid`.
+  `records.Validate`. A refusal is `foyer_invalid`.
 - **A password change ends every session.** PocketBase refreshes the user's
   token key itself when the password changes; the Go tests prove it. Never add
   a hook that saves a user without letting that happen.
@@ -75,10 +75,10 @@ They hold for superusers too: the dashboard goes through the same API.
 
 ## The two routes
 
-- **`GET /api/sc/info`** — `{ serverVersion, maxProfiles, signUp }`, with no
+- **`GET /api/foyer/info`** — `{ serverVersion, maxProfiles, signUp }`, with no
   session.
-- **`POST /api/sc/sign-up`** — `{ username, password, invite?, firstProfile }`.
-  The invite is checked first when `SC_SIGNUP=invite`. One transaction makes
+- **`POST /api/foyer/sign-up`** — `{ username, password, invite?, firstProfile }`.
+  The invite is checked first when `FOYER_SIGNUP=invite`. One transaction makes
   the user and, with `firstProfile`, a profile named after it — under the id
   the plugin would derive for its key — and spends the invite. It answers
   PocketBase's own sign-in response.
@@ -111,7 +111,7 @@ for lost and uploaded again. That last rule is why most of this list exists.
    deleted. Nothing but deleting a user removes a row — which is also what
    keeps paged reads from skipping one.
 3. **A batch is all or nothing** — PocketBase's own transaction — and a
-   refusal names its write: `sc_limit`, `sc_deleted`, or anything else for
+   refusal names its write: `foyer_limit`, `foyer_deleted`, or anything else for
    `invalid`. Never replace it with requests one by one: a failure half-way
    would leave the client unable to say what was stored.
 4. **The server never resolves conflicts.** It stores what the rules allow and

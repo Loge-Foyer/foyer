@@ -1,6 +1,6 @@
 pb_data
 harness
-streaming-center-sync
+foyer
 .env
 .env.*
 !.env.example

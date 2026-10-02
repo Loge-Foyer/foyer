@@ -25,7 +25,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-and `docker compose exec sync streaming-center-sync …` wherever `go run . …`
+and `docker compose exec foyer foyer …` wherever `go run . …`
 appears below. `docs/deployment` has the settings, TLS and backups.
 
 ## The superuser
@@ -33,7 +33,7 @@ appears below. `docs/deployment` has the settings, TLS and backups.
 The dashboard, at `http://localhost:8090/_/`, needs a superuser: the server's
 administrator. Any one of these makes it:
 
-- `SC_ADMIN_EMAIL` and `SC_ADMIN_PASSWORD` in `.env`, before the first start
+- `FOYER_ADMIN_EMAIL` and `FOYER_ADMIN_PASSWORD` in `.env`, before the first start
 - `go run . superuser upsert you@example.com 'a long password'`
 - the link PocketBase prints when it starts without one
 
@@ -79,7 +79,7 @@ The app on the web runs from a secure page, so a browser can reach only an
 
 ## Who may sign up
 
-`SC_SIGNUP`, in `.env`:
+`FOYER_SIGNUP`, in `.env`:
 
 - `invite` — the default: a code from `invite`, used once
 - `open` — anyone who can reach the server; only on a network you trust

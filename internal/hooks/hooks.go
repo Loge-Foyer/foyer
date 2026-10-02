@@ -20,14 +20,14 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/pocketbase/pocketbase/tools/types"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/records"
+	"foyer/internal/config"
+	"foyer/internal/records"
 )
 
 // The reasons a device acts on, as a field error's code.
 const (
-	CodeLimit   = "sc_limit"
-	CodeDeleted = "sc_deleted"
+	CodeLimit   = "foyer_limit"
+	CodeDeleted = "foyer_deleted"
 )
 
 // Fields a tombstone keeps: what identifies it, and its parents.

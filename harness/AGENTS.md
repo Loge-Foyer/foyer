@@ -4,7 +4,7 @@
 and vitest, test-only, and nothing in it ships: not in the binary, not in the
 image (`.dockerignore` leaves it out).
 
-It exists because Go cannot import `@sc/api`. The shared fixtures keep the
+It exists because Go cannot import `@loge/api`. The shared fixtures keep the
 record contract in step; this keeps the *plugin* in step: the real
 `sync/custom-server`, the one the app ships, against the real binary.
 
@@ -14,21 +14,21 @@ record contract in step; this keeps the *plugin* in step: the real
   temporary directory.
 - `test/support/server.ts` starts it for each test on a temporary data
   directory and a free port, with an environment of its own — nothing from
-  your shell's `SC_*` — so every test starts with no accounts and a fresh
+  your shell's `FOYER_*` — so every test starts with no accounts and a fresh
   rate limiter. `invite` and `superuser` are the binary's own commands.
 - `test/support/host.ts` is a device as far as a plugin can tell: the app's
   host context rebuilt on Node — `fetch`, node:crypto, a session store that
   outlives a provider — with every exchange recorded, so a test can count the
   sign-ins.
-- `@sc/api` and the adapter are aliased to their source in
-  `../../streaming_center_app/adapters` (`vitest.config.ts`, `tsconfig.json`),
+- `@loge/api` and the adapter are aliased to their source in
+  `../../loge/adapters` (`vitest.config.ts`, `tsconfig.json`),
   never installed. Both aliases are relative paths into another repository,
   so they break the moment the adapters move — as they did in Phase 9.
 
 ## Rules
 
 - **Never import the app.** The plugin, through its public `plugin` export,
-  and `@sc/api`: nothing else.
+  and `@loge/api`: nothing else.
 - **Never reach into the plugin's internals** — its session format, its
   record ids. What the harness checks is what a device would see.
 - **Mind the rate limits.** They are on, as in production: five password

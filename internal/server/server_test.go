@@ -11,15 +11,27 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"streaming-center-sync/internal/config"
-	"streaming-center-sync/internal/fixtures"
-	"streaming-center-sync/internal/invites"
-	"streaming-center-sync/internal/records"
+	"foyer/internal/config"
+	"foyer/internal/fixtures"
+	"foyer/internal/invites"
+	"foyer/internal/records"
 )
+
+func TestTheServerIsFoyer(t *testing.T) {
+	h := start(t, options{})
+	settings := h.app.Settings()
+	labels := []string{}
+	for _, rule := range settings.RateLimits.Rules {
+		labels = append(labels, rule.Label)
+	}
+	if settings.Meta.AppName != "Foyer" || slices.Contains(labels, "/api/sc/sign-up") || !slices.Contains(labels, "/api/foyer/sign-up") {
+		t.Fatalf("name %q, rate limit rules %v", settings.Meta.AppName, labels)
+	}
+}
 
 func TestInfoNeedsNoSession(t *testing.T) {
 	h := start(t, options{cfg: config.Config{MaxProfiles: 4, SignUp: config.SignUpInvite}})
-	got := h.call(http.MethodGet, "/api/sc/info", "", nil)
+	got := h.call(http.MethodGet, "/api/foyer/info", "", nil)
 	if got.status != http.StatusOK || got.body["maxProfiles"] != float64(4) || got.body["signUp"] != "invite" || got.body["serverVersion"] == "" {
 		t.Fatalf("info: %d %v", got.status, got.body)
 	}
@@ -50,7 +62,7 @@ func TestSignUpOpenMakesAnAccountAndSignsItIn(t *testing.T) {
 
 func TestSignUpClosedTakesNobody(t *testing.T) {
 	h := start(t, options{cfg: config.Config{SignUp: config.SignUpClosed}})
-	got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "alex", "password": "a long password"})
+	got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "a long password"})
 	if got.status != http.StatusForbidden {
 		t.Fatalf("closed sign-up: %d %v", got.status, got.body)
 	}
@@ -64,7 +76,7 @@ func TestAnInviteMakesOneAccountOnly(t *testing.T) {
 	}
 
 	// Refused without one, before the username is looked at: nobody learns which exist.
-	if got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "alex", "password": "a long password"}); got.status != http.StatusForbidden {
+	if got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "a long password"}); got.status != http.StatusForbidden {
 		t.Fatalf("no invite: %d %v", got.status, got.body)
 	}
 	// Typed any way it likes.
@@ -73,7 +85,7 @@ func TestAnInviteMakesOneAccountOnly(t *testing.T) {
 	if err != nil || invite.GetString("used_by") != alex.id {
 		t.Fatalf("the invite does not name its account: %v %v", invite, err)
 	}
-	if got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "sam", "password": "a long password", "invite": code}); got.status != http.StatusForbidden {
+	if got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "sam", "password": "a long password", "invite": code}); got.status != http.StatusForbidden {
 		t.Fatalf("a spent invite: %d %v", got.status, got.body)
 	}
 }
@@ -85,7 +97,7 @@ func TestAnInviteIsNeverSpentOnAnAccountNotMade(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Too short a password: the account is refused, and the invite stays good.
-	if got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "alex", "password": "short", "invite": code}); got.status != http.StatusBadRequest {
+	if got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "short", "invite": code}); got.status != http.StatusBadRequest {
 		t.Fatalf("a short password: %d %v", got.status, got.body)
 	}
 	h.signUp("alex", map[string]any{"invite": code})
@@ -97,7 +109,7 @@ func TestAnExpiredInviteWillNotDo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "alex", "password": "a long password", "invite": code}); got.status != http.StatusForbidden {
+	if got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "a long password", "invite": code}); got.status != http.StatusForbidden {
 		t.Fatalf("an expired invite: %d %v", got.status, got.body)
 	}
 }
@@ -105,7 +117,7 @@ func TestAnExpiredInviteWillNotDo(t *testing.T) {
 func TestUsernamesAreOneAccountEachWhateverTheCase(t *testing.T) {
 	h := start(t, options{})
 	h.signUp("Alex", nil)
-	got := h.call(http.MethodPost, "/api/sc/sign-up", "", map[string]any{"username": "alex", "password": "a long password"})
+	got := h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "a long password"})
 	if got.status != http.StatusBadRequest {
 		t.Fatalf("a taken username: %d %v", got.status, got.body)
 	}
@@ -178,7 +190,7 @@ func TestABatchIsStoredWholeOrNotAtAll(t *testing.T) {
 		put(records.KindPin, bad),
 	)
 	index, codes := refusal(t, got)
-	if index != "2" || !slices.Contains(codes, "sc_invalid") {
+	if index != "2" || !slices.Contains(codes, "foyer_invalid") {
 		t.Fatalf("the refusal names %s %v", index, codes)
 	}
 	if stored := h.items(alex, records.KindProfile); len(stored) != 0 {
@@ -213,7 +225,7 @@ func TestABatchJudgesWhatWasSentBeforeItIsCast(t *testing.T) {
 	// PocketBase would read "no" as false.
 	sent["deleted"] = "no"
 	index, codes := refusal(t, h.batch(alex, put(records.KindProfile, sent)))
-	if index != "0" || !slices.Contains(codes, "sc_invalid") {
+	if index != "0" || !slices.Contains(codes, "foyer_invalid") {
 		t.Fatalf("the refusal names %s %v", index, codes)
 	}
 }
@@ -228,7 +240,7 @@ func TestTheProfileLimitCountsLiveProfilesOnly(t *testing.T) {
 		t.Fatalf("two profiles: %d %v", got.status, got.body)
 	}
 	index, codes := refusal(t, h.batch(alex, put(records.KindProfile, profile(alex, "u3", "Robin"))))
-	if index != "0" || !slices.Contains(codes, "sc_limit") {
+	if index != "0" || !slices.Contains(codes, "foyer_limit") {
 		t.Fatalf("a third: %s %v", index, codes)
 	}
 	// Deleting one makes room.
@@ -254,7 +266,7 @@ func TestADeletedProfileOrConnectionStaysDeleted(t *testing.T) {
 		put(records.KindConnection, connection(alex, "c1", []string{}, map[string]any{})),
 	} {
 		index, codes := refusal(t, h.batch(alex, write))
-		if index != "0" || !slices.Contains(codes, "sc_deleted") {
+		if index != "0" || !slices.Contains(codes, "foyer_deleted") {
 			t.Fatalf("un-deleting %d: %s %v", i, index, codes)
 		}
 	}
@@ -414,6 +426,17 @@ func TestSigningInIsThrottledPerAddress(t *testing.T) {
 	}
 	if statuses[4] != http.StatusBadRequest || statuses[5] != http.StatusTooManyRequests {
 		t.Fatalf("sign-ins from one address: %v", statuses)
+	}
+}
+
+func TestSigningUpIsThrottledPerAddress(t *testing.T) {
+	h := start(t, options{cfg: config.Config{SignUp: config.SignUpClosed}, limits: true})
+	statuses := []int{}
+	for i := 0; i < 6; i++ {
+		statuses = append(statuses, h.call(http.MethodPost, "/api/foyer/sign-up", "", map[string]any{"username": "alex", "password": "a long password"}).status)
+	}
+	if statuses[4] != http.StatusForbidden || statuses[5] != http.StatusTooManyRequests {
+		t.Fatalf("sign-ups from one address: %v", statuses)
 	}
 }
 

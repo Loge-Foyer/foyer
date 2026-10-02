@@ -1,7 +1,7 @@
 // The real sync/custom-server plugin — the one the app ships — against the
 // real binary. The Go tests prove the server's rules by calling its API; this
 // proves the plugin and the server agree on every one of them.
-import { connectionId, pluginId, recordKey, userId, type AccountRecord, type ConnectionId, type UserId } from '@sc/api';
+import { connectionId, pluginId, recordKey, userId, type AccountRecord, type ConnectionId, type UserId } from '@loge/api';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { device, SIGN_IN, type Device } from './support/host';

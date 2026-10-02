@@ -6,11 +6,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
 
-	"streaming-center-sync/internal/config"
+	"foyer/internal/config"
 )
 
-// The first superuser, from SC_ADMIN_EMAIL and SC_ADMIN_PASSWORD, when the
-// server starts for the first time with them set. Without them, `superuser
+// The first superuser, from FOYER_ADMIN_EMAIL and FOYER_ADMIN_PASSWORD, when
+// the server starts for the first time with them set. Without them, `superuser
 // upsert` makes one. Either way the password should not stay in `.env`.
 func init() {
 	m.Register(func(app core.App) error {

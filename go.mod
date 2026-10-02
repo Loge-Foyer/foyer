@@ -1,4 +1,4 @@
-module streaming-center-sync
+module foyer
 
 go 1.27
 

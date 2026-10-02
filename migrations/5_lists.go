@@ -5,7 +5,7 @@ import (
 	m "github.com/pocketbase/pocketbase/migrations"
 	"github.com/pocketbase/pocketbase/tools/types"
 
-	"streaming-center-sync/internal/records"
+	"foyer/internal/records"
 )
 
 // Subscriptions and playlists: the first state the app owns itself, as against
